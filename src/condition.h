@@ -9,4 +9,3 @@ typedef struct _Condition {
 	uint16_t type;
 	bool (*func)(Sensor* sensor);
 }
-

@@ -182,3 +182,8 @@ fail:
 
 	return false;
 }
+
+bool iot_process(Packet* packet) {
+
+	return true;
+}

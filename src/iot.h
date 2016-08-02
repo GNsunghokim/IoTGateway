@@ -1,23 +1,6 @@
 #include <util/types.h>
 #include <util/map.h>
 
-typedef struct _Action {
-	char* name;
-	bool (*func)(void* data);
-} Action;
-
-typedef struct _Actuator {
-	char* name;
-	Map* actions;
-} Actuator;
-
-typedef struct _Sensor {
-	char* name;
-	uint64_t* datas;
-	uint32_t size;
-	uint32_t index;
-} Sensor;
-
 typedef struct _IoTDevice {
 	char* name;
 	char* description;
@@ -28,4 +11,12 @@ typedef struct _IoTDevice {
 } IoTDevice;
 
 bool iot_init();
-bool iot_create_device();
+bool iot_create_device(char* name, char* description, uint32_t ip);
+bool iot_delete_device(char* name);
+
+#define		IOT_DEVICE_NONE		0x00
+#define		IOT_DEVICE_SENSOR	0x01
+#define		IOT_DEVICE_ACTUATOR	0x02
+
+bool iot_add_module(char* name, uint8_t type, void* module);
+bool iot_remove_module(char* name, uint8_t type, void* module);

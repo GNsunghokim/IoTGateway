@@ -1,0 +1,69 @@
+{
+	"iot-device": [
+		{
+			"name": "rustam-iot",
+			"id": 00000000,
+			"mac": "94:de:80:8f:94:b8",
+			"description": "This device is rustam's device",
+			"sensor": [
+			{
+				"name": "temperature1",
+				"id": 00000000,
+				"buffer-size": 20
+			},
+			{
+				"name": "temperature2",
+				"id": 00000001,
+				"buffer-size": 20
+			},
+			{
+				"name": "humidity",
+				"id": 00000002,
+				"buffer-size": 10
+			},
+			{
+				"name": "luminous",
+				"id": 00000003,
+			},
+			]
+		},
+		{
+			"name": "lifix",
+			"id": 00000001,
+			"mac": "94:de:80:8f:94:b9",
+			"description": "This device is lifix",
+			"actuator": [
+			{
+				"name": "light",
+				"action": [
+				{
+					"name": "turn_on",
+					"func": "turn_on"
+				}
+				{
+					"name": "turn_off",
+					"func": "turn_off"
+				}
+				{
+					"name": "turn_on_red",
+					"func": "turn_on_red"
+				}
+				{
+					"name": "turn_on_blue",
+					"func": "turn_on_blue"
+				}
+				]
+			}
+			]
+		}
+	],
+	"rule" : [
+		{
+			"name": "fire",
+			"type": "urgent",
+			"func": "rustam-iot.temperature1.avg > 100",
+			"action": "lifix.turn_on_red",
+			"description": "My home is burnning"
+		}
+	]
+}

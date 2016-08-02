@@ -20,16 +20,19 @@ void init(int argc, char** argv) {
 	event_init();
 }
 
-void process(NIC* ni) {
+inline void process(NIC* ni) {
 	Packet* packet = nic_input(ni);
 	if(!packet)
 		return;
 	
-	if(arp_process(packet))
-		return;
-	
-	if(icmp_process(packet))
-		return;
+	printf("Hello\n");
+// IoT Gateway not need echo
+//	
+//	if(arp_process(packet))
+//		return;
+//	
+//	if(icmp_process(packet))
+//		return;
 
 	if(iot_process(packet))
 		return;
@@ -64,9 +67,7 @@ int main(int argc, char** argv) {
 			i = (i + 1) % count;
 			
 			NIC* ni = nic_get(i);
-			while(nic_has_input(ni)) {
-				process(ni);
-			}
+			process(ni);
 		}
 		event_loop();
 	}

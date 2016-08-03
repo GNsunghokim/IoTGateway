@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="javax.xml.ws.handler.Handler"/>
+<fullyQualifiedTypeName name="java.util.logging.Handler"/>
+<fullyQualifiedTypeName name="java.nio.charset.Charset"/>
+<fullyQualifiedTypeName name="kr.dms.iot.lifx.desktop.imitating.Context"/>
+<fullyQualifiedTypeName name="kr.dms.iot.lifx.desktop.LifxNonStaticStarter"/>
+<fullyQualifiedTypeName name="kr.dms.iot.lifx.desktop.imitating.RusHandler"/>
+<fullyQualifiedTypeName name="java.lang.Thread"/>
+<fullyQualifiedTypeName name="kr.dms.iot.lifx.desktop.imitating.RusMessage"/>
+</qualifiedTypeNameHistroy>

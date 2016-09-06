@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <thread.h>
+#include <util/event.h>
 #include <net/nic.h>
 #include <net/packet.h>
 #include <net/ether.h>
@@ -10,6 +11,7 @@
 #include <net/udp.h>
 
 #include "dup.h"
+#include "iot.h"
 
 void ginit(int argc, char** argv) {
 }
@@ -18,9 +20,11 @@ void init(int argc, char** argv) {
 	dup_init();
 	iot_init();
 	event_init();
+
+	//configuration open json format
 }
 
-inline void process(NIC* ni) {
+void process(NIC* ni) {
 	Packet* packet = nic_input(ni);
 	if(!packet)
 		return;

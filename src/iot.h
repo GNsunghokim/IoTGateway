@@ -19,4 +19,5 @@ bool iot_delete_device(char* name);
 #define		IOT_DEVICE_ACTUATOR	0x02
 
 bool iot_add_module(char* name, uint8_t type, void* module);
-bool iot_remove_module(char* name, uint8_t type, void* module);
+void* iot_remove_module(char* name, uint8_t type, char* module_name);
+bool iot_process(Packet* packet);

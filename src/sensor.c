@@ -1,10 +1,11 @@
 #include <util/map.h>
 #include <util/types.h>
+#include <malloc.h>
+#include <string.h>
 
-static Sensor* sensor_create() {
-	char* name = NULL;
-	uint16_t size = 0;
+#include "sensor.h"
 
+Sensor* sensor_create(char* name, uint16_t size) {
 	Sensor* sensor = (Sensor*)malloc(sizeof(Sensor));
 	if(!sensor)
 		return NULL;
@@ -44,7 +45,11 @@ fail:
 	return NULL;
 } 
 
-static void sensor_delete(Sensor* sensor) {
+bool sensor_delete(Sensor* sensor) {
+	if(!sensor) {
+		printf("sensor is null\n");
+		return false;
+	}	
 	if(sensor->datas) {
 		free(sensor->datas);
 		sensor->datas = NULL;
@@ -60,5 +65,5 @@ static void sensor_delete(Sensor* sensor) {
 		sensor = NULL;
 	}
 
-	return NULL;
+	return true;
 }

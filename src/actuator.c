@@ -113,6 +113,8 @@ bool actuator_delete(Actuator* actuator) {
 		free(actuator);
 		actuator = NULL;
 	}
+
+	return true;
 }
 
 bool actuator_add_sensor(Actuator* actuator, Action* action) {

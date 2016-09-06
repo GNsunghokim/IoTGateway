@@ -3,12 +3,23 @@
 #include <string.h>
 #include <util/map.h>
 #include <util/types.h>
+#include <net/packet.h>
+#include <net/ether.h>
+#include <net/arp.h>
+#include <net/ip.h>
+#include <net/icmp.h>
+#include <net/checksum.h>
+#include <net/udp.h>
+
+#include "iot.h"
+#include "actuator.h"
+#include "sensor.h"
 
 static Map* iot_database;
 
 bool iot_init() {
 	iot_database = map_create(32, map_string_hash, map_string_equals, NULL);
-	if(!iots)
+	if(!iot_database)
 		return false;
 
 
@@ -196,19 +207,26 @@ void* iot_remove_module(char* name, uint8_t type, char* module_name) {
 	}
 }
 
+bool is_alljoyn(IP* ip) {
+	return false;
+}
+
+bool is_iot_packet(IP* ip) {
+	return true;
+}
+
 bool iot_process(Packet* packet) {
-	Ether* ether = (Ether*)((*packet)->buffer + (*packet)->start);
+	Ether* ether = (Ether*)(packet->buffer + packet->start);
 	IP* ip = (IP*)ether->payload;
 	if(is_alljoyn(ip)) {
 		//alljoyn process
-
 		return true;
-	} else if(is_iot_packet(ip)) {
+	}
+	if(is_iot_packet(ip)) {
 		//noral protocol
-
 		return true;
 	} else {
-		ni_free(packet);
+		nic_free(packet);
 		return true;
 	}
 

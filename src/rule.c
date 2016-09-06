@@ -1,8 +1,16 @@
+#include <stdbool.h>
+#include <malloc.h>
+#include <string.h>
+#include <util/types.h>
+#include <util/map.h>
+
+#include "rule.h"
+
 static Map* rule_database;
 
 bool rule_init() {
 	rule_database = map_create(16, map_string_hash, map_string_equals, NULL);
-	if(!rule)
+	if(!rule_database)
 		return false;
 
 	return true;
@@ -13,6 +21,7 @@ static bool rule_func_check(char* func) {
 }
 
 bool rule_delete(char* name) {
+	return false;
 }
 
 bool rule_create(char* name, uint8_t type, char* func, char* description) {

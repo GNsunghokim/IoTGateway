@@ -5,4 +5,5 @@ typedef struct _Sensor {
 	uint32_t index;
 } Sensor;
 
-bool sensor_create();
+Sensor* sensor_create(char* name, uint16_t size);
+bool sensor_delete(Sensor* sensor);

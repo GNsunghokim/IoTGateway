@@ -203,7 +203,8 @@ bool iot_process(Packet* packet) {
 		//alljoyn process
 
 		return true;
-	} else if(is_iot_packet(ip)) {
+	}
+	if(is_iot_packet(ip)) {
 		//noral protocol
 
 		return true;

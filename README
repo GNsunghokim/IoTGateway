@@ -1,0 +1,15 @@
+Installation Guide
+0. Download PacketNgin
+	$ git clone https://github.com/PacketNgin/rtos.git
+
+1. Download PacketNgin IoT Gateway
+	$ cd rtos/examples/
+	$ git clone https://github.com/GNsunghokim/IoTgateway.git
+
+2. Install Json Parser Library
+	$ git clone http://github.com/json-c/json-c.git
+	$ cd json-c
+	$ sh autogen.sh
+	$ ./configure
+	$ mkae
+	$ make install

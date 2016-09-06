@@ -21,6 +21,7 @@ typedef struct _Server {
 	uint32_t ip;
 	uint16_t port;
 	char* name;
+	uint8_t type;
 } Server;
 
 bool dup_process(Packet* packet) {
@@ -32,6 +33,11 @@ bool dup_process(Packet* packet) {
 		Server* server = entry->data;
 
 		printf("%p", server);
+		if(server->type == DUP_SERVER_TYPE_OVERLAY) {
+
+		} else if(server->type == DUP_SERVER_TYPE_FORWARDING) { 
+
+		}
 		//packet duplicate to CEP server and Storage Server
 		//need protocol between server and iotgateway
 	}
@@ -39,7 +45,7 @@ bool dup_process(Packet* packet) {
 	return true;
 }
 
-bool dup_server_create(uint32_t ip, uint16_t port, char* name) {
+bool dup_server_create(uint32_t ip, uint16_t port, char* name, uint8_t type) {
 	Server* server = (Server*)malloc(sizeof(Server));
 	if(!server)
 		return false;
@@ -53,6 +59,7 @@ bool dup_server_create(uint32_t ip, uint16_t port, char* name) {
 	strcpy(server->name, name);
 	server->ip = ip;
 	server->port = port;
+	server->type = type;
 	
 	if(!map_put(servers, server->name, server)) {
 		free(server->name);

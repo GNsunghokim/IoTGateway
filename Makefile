@@ -26,3 +26,6 @@ run: all
 
 install:
 	git clone https://github.com/json-c/json-c.git
+
+test: test.c src/*.c
+	gcc -o test $^ -std=gnu99 $(shell pkg-config --cflags json-c --libs json-c) -I ../../include ../../lib/libumpn.a

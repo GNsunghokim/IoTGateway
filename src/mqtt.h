@@ -1,7 +1,7 @@
 /**
  * MQTT Header
  */
-typedef struct _UDP {
+typedef struct _MQTT {
 	uint8_t		type: 4;
 	uint8_t		dup: 1;
 	uint8_t		qos: 2;

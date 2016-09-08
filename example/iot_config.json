@@ -1,0 +1,65 @@
+{
+	"iot-device": [{
+		"name": "rustam-iot",
+		"id": 0,
+		"mac": "94:de:80:8f:94:b8",
+		"description": "This device is rustam's device",
+		"sensor": [{
+			"name": "temperature",
+			"buffer-size": 20
+		}, {
+			"name": "humidity",
+			"buffer-size": 1
+		}, {
+			"name": "luminous",
+		}]
+	}, {
+		"name": "lifix",
+		"id": 1,
+		"mac": "94:de:80:8f:94:b9",
+		"description": "This device is lifix",
+		"actuator": [{
+			"name": "light",
+			"action": [{
+				"name": "turn_on",
+				"func": "turn_on"
+			}, {
+				"name": "turn_off",
+				"func": "turn_off"
+			}, {
+				"name": "turn_on_red",
+				"func": "turn_on_red"
+			}, {
+				"name": "turn_on_blue",
+				"func": "turn_on_blue"
+			}]
+		}]
+	}],
+	"rule": [{
+		"name": "fire",
+		"type": "agile",
+		"func": "rustam-iot.temperature1.avg > 100",
+		"action": "lifix.turn_on_red",
+		"priority": 9,
+		"description": "My home is burnning"
+	}, {
+		"name": "warm",
+		"type": "agile",
+		"func": "rustam-iot.temperature1.avg > 30",
+		"action": "lifix.turn_on_blue",
+		"priority": 1,
+		"description": "My home is warm"
+	}, {
+		"name": "daytime",
+		"type": "agile",
+		"func": "rustam-iot.luminous.max > 50",
+		"action": "lifix.turn_off",
+		"description": "Now is the daytime"
+	}, {
+		"name": "night",
+		"type": "agile",
+		"func": "rustam-iot.luminous.max < 50",
+		"action": "lifix.turn_on",
+		"description": "Now is the night"
+	}]
+}

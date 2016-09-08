@@ -4,6 +4,9 @@
 #include <util/types.h>
 #include <util/map.h>
 
+#include <json.h>
+#include <json_util.h>
+
 #include "rule.h"
 
 static Map* rule_database;
@@ -92,3 +95,7 @@ fail:
 
 	return false;
 }
+
+bool rule_json_create(json_object* jso) {
+	return false;
+}	

@@ -15,6 +15,9 @@
 #include "actuator.h"
 #include "sensor.h"
 
+#include <json.h>
+#include <json_util.h>
+
 static Map* iot_database;
 
 bool iot_init() {
@@ -26,20 +29,20 @@ bool iot_init() {
 	return true;
 }
 
-bool iot_create_device(char* name, char* description, uint32_t ip) {
+IoTDevice* iot_create_device(char* name, char* description, uint64_t mac) {
 	if(!name) {
 		printf("iot_create_device fail: name is null\n");
-		return false;
+		return NULL;
 	}
 	if(map_contains(iot_database, name)) {
 		printf("iot_create_device fail: already existing name\n");
-		return false;
+		return NULL;
 	}
 
 	IoTDevice* iotdevice = (IoTDevice*)malloc(sizeof(IoTDevice));
 	if(!iotdevice) {
 		printf("iot_create_device fail: malloc fail\n");
-		return false;
+		return NULL;
 	}
 
 	memset(iotdevice, 0, sizeof(IoTDevice));
@@ -49,6 +52,8 @@ bool iot_create_device(char* name, char* description, uint32_t ip) {
 		goto fail;
 
 	strcpy(iotdevice->name, name);
+
+	iotdevice->mac = mac;
 
 	if(description) {
 		iotdevice->description = (char*)malloc(strlen(description) + 1);
@@ -68,13 +73,11 @@ bool iot_create_device(char* name, char* description, uint32_t ip) {
 		goto fail;
 	}
 
-	iotdevice->ip = ip;
-
 	if(!map_put(iot_database, name, iotdevice)) {
 		goto fail;
 	}
 
-	return true;
+	return iotdevice;
 fail:
 	if(iotdevice->name) {
 		free(iotdevice->name);
@@ -98,7 +101,67 @@ fail:
 	}
 	printf("IoT Device Create Fail\n");
 
-	return false;
+	return NULL;
+}
+
+bool iot_json_create(json_object *jso) {
+	char name[64];
+	char mac[32];
+	char description[128];
+
+
+	json_object_object_foreach(jso, key1, child_object1) {
+		if(!strcmp(key1, "name")) {
+			strcpy(name, json_object_to_json_string(child_object1));
+			printf("iot-device: %s\n", name);
+		} else if(!strcmp(key1, "mac")) {
+			strcpy(mac, json_object_to_json_string(child_object1));
+			printf("\t%s: %s\n", key1, mac);
+		} else if(!strcmp(key1, "description")) {
+			strcpy(description, json_object_to_json_string(child_object1));
+			printf("\t%s: %s\n", key1, description);
+		} else {
+			//printf("???\n");
+		}
+	}
+
+	IoTDevice* iot_device = iot_create_device(name, description, 0); //TODO fix here mac address
+	if(!iot_device) {
+		printf("Can't Create iot_device\n");
+		return false;
+	}
+
+	json_object_object_foreach(jso, key2, child_object2) {
+		if(!strcmp(key2, "sensor")) {
+			printf("\tSensor:\n");
+			printf("\t\tName\t\tBufferSize\n");
+			for(int j = 0; j < json_object_array_length(child_object2); j++) {
+				json_object* sensor_object = json_object_array_get_idx(child_object2, j);
+				Sensor* sensor = sensor_json_create(sensor_object);
+				if(!sensor) {
+					return false; //TODO garbage collect
+				}
+				if(!iot_add_module(iot_device, IOT_DEVICE_SENSOR, (void*)sensor)) {
+					return false; //TODO garbage collect
+				}
+			}
+		} else if(!strcmp(key2, "actuator")) {
+			printf("\tActuator:\n");
+			printf("\t\tName\t\tActionName\t\tActionFunc\n");
+			for(int j = 0; j < json_object_array_length(child_object2); j++) {
+				json_object* actuator_object = json_object_array_get_idx(child_object2, j);
+				Actuator* actuator = actuator_json_create(actuator_object);
+				if(!actuator) {
+					return false;
+				}
+				if(!iot_add_module(iot_device, IOT_DEVICE_ACTUATOR, (void*)actuator)) {
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 bool iot_delete_device(char* name) {
@@ -139,16 +202,11 @@ bool iot_delete_device(char* name) {
 	return true;
 }
 
-bool iot_add_module(char* name, uint8_t type, void* module) {
-	if(!name) {
+bool iot_add_module(IoTDevice* iot_device, uint8_t type, void* module) {
+	if(!iot_device) {
 		return false;
 	}
 	if(!module) {
-		return false;
-	}
-
-	IoTDevice* iotdevice = map_get(iot_database, name);
-	if(!iotdevice) {
 		return false;
 	}
 
@@ -156,14 +214,14 @@ bool iot_add_module(char* name, uint8_t type, void* module) {
 		case IOT_DEVICE_SENSOR:
 			;
 			Sensor* sensor = (Sensor*)module;
-			if(!map_put(iotdevice->sensors, sensor->name, sensor)) {
+			if(!map_put(iot_device->sensors, sensor->name, sensor)) {
 				return false;
 			}
 			break;
 		case IOT_DEVICE_ACTUATOR:
 			;
 			Actuator* actuator = (Actuator*)module;
-			if(!map_put(iotdevice->actuators, actuator->name, actuator)) {
+			if(!map_put(iot_device->actuators, actuator->name, actuator)) {
 				return false;
 			}
 			break;

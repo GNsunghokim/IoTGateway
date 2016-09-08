@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <thread.h>
 #include <util/event.h>
@@ -15,6 +16,7 @@
 
 #include "dup.h"
 #include "iot.h"
+#include "rule.h"
 
 #define CONFIG_FILE	"iot_config.json"
 
@@ -26,7 +28,7 @@ void init(int argc, char** argv) {
 	iot_init();
 	event_init();
 
-	json_object *jso = json_object_from_file("./example/iot_config.json");
+	json_object *jso = json_object_from_file("./iot_config.json");
 	if (jso) {
 		//json_object_put(jso);
 		json_object_object_foreach(jso, key, child_object) {

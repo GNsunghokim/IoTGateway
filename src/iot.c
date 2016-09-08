@@ -7,6 +7,8 @@
 #include <net/ether.h>
 #include <net/arp.h>
 #include <net/ip.h>
+#include <net/udp.h>
+#include <net/tcp.h>
 #include <net/icmp.h>
 #include <net/checksum.h>
 #include <net/udp.h>
@@ -14,6 +16,7 @@
 #include "iot.h"
 #include "actuator.h"
 #include "sensor.h"
+#include "mqtt.h"
 
 #include <json.h>
 #include <json_util.h>
@@ -269,8 +272,31 @@ bool is_alljoyn(IP* ip) {
 	return false;
 }
 
+typedef struct _MQTT_VHeader {
+	uint8_t		id;
+	uint8_t		topic_length;
+	uint8_t         topic[0];
+} __attribute__ ((packed)) MQTT_VHeader;
+
 bool is_iot_packet(IP* ip) {
-	return true;
+	if(ip->protocol == IP_PROTOCOL_UDP) {
+		return false;
+	} else if(ip->protocol == IP_PROTOCOL_TCP) {
+		TCP* tcp = (TCP*)ip->body;
+		if(endian16(ip->source) == 1883) { //check ip and port iot device ip and port 1883 == mqtt broker port
+			MQTT* mqtt = (MQTT*)tcp->payload;
+			MQTT_VHeader* vheader= (MQTT_VHeader*)mqtt->body;
+			char buf[256] = {0,};
+			strncpy(buf, (char*)vheader->topic, vheader->topic_length);
+			printf("%d: ", mqtt->length);
+			printf("topic name: %s\n", buf);
+			strncpy(buf, (char*)vheader->topic + sizeof(MQTT_VHeader) + vheader->topic_length, mqtt->length - sizeof(MQTT_VHeader) + vheader->topic_length);
+			printf("\tdata: %s\n", buf);
+		}
+
+		return false;
+	}
+	return false;
 }
 
 bool iot_process(Packet* packet) {

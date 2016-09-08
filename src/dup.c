@@ -46,12 +46,12 @@ bool dup_process(Packet* packet) {
 		if(endian16(ether->type) == ETHER_TYPE_IPv4) {
 			IP* ip = (IP*)ether->payload;
 			if(ip->protocol == IP_PROTOCOL_UDP) {
-				UDP* udp = (UDP*)ip->body;
-				int len = 0;
-				while(len == endian16(udp->length)) {
-					len += write(server->fd, udp->body + len, endian16(udp->length) - len);
-					printf("UDP Write %d\n", len);
-				}
+// 				UDP* udp = (UDP*)ip->body;
+// 				int len = 0;
+// 				while(len == endian16(udp->length)) {
+// 					len += write(server->fd, udp->body + len, endian16(udp->length) - len);
+// 					printf("UDP Write %d\n", len);
+// 				}
 			} else if(ip->protocol == IP_PROTOCOL_TCP) {
 				TCP* tcp = (TCP*)ip->body;
 				int len = 0;

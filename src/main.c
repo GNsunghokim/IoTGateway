@@ -29,8 +29,8 @@ void init(int argc, char** argv) {
 	event_init();
 
 	json_object *jso = json_object_from_file("./iot_config.json");
-	if (jso) {
-		//json_object_put(jso);
+	if(jso) { 
+		printf("%s is opened\n", "iot_config.json");
 		json_object_object_foreach(jso, key, child_object) {
 
 			if(!strcmp(key, "iot-device")) {
@@ -40,6 +40,8 @@ void init(int argc, char** argv) {
 					printf("\n");
 				}
 			} else if(!strcmp(key, "rule")) {
+				printf("\tRule:\n");
+				printf("\t\tName\t\tFunc\n\t\t\t\tAction\t\tDescription\n");
 				for(int i =0; i < json_object_array_length(child_object); i++) {
 					json_object* rule_object = json_object_array_get_idx(child_object, i);
 					rule_json_create(rule_object);

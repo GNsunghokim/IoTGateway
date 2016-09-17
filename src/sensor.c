@@ -23,9 +23,10 @@ Sensor* sensor_create(char* name, uint64_t size) {
 	sensor->datas = (uint64_t*)malloc(sizeof(uint64_t) * size);
 	if(!sensor->datas)
 		goto fail;
+	memset(sensor->datas, 0 ,sizeof(uint64_t) * size);
 
 	sensor->size = size;
-	memset(sensor->datas, 0 ,sizeof(uint64_t) * size);
+	sensor->count = 0;
 
 	return sensor;
 
@@ -87,4 +88,72 @@ bool sensor_delete(Sensor* sensor) {
 	}
 
 	return true;
+}
+
+bool sensor_data_push(Sensor* sensor, uint64_t data) {
+	sensor->datas[sensor->count % sensor->size] = data;
+	sensor->count++;
+
+	return true;
+}
+
+int64_t get_newest(Sensor* sensor) {
+	if(!sensor) {
+		printf("Error\n");
+		return 0;
+	}
+	
+	if(sensor->count == 0) {
+		return 0;
+	} else {
+		return sensor->datas[(sensor->count - 1) % sensor->size];
+	}
+}
+
+int64_t get_avg(Sensor* sensor) {
+	int64_t sum;
+
+	if(!sensor) {
+		printf("Error\n");
+		return 0;
+	}
+
+	if(sensor->count < sensor->size) {
+		for(int i = 0; i < sensor->count; i++) {
+			sum += sensor->datas[i];
+		}
+
+		return sum / sensor->count;
+	} else {
+		for(int i = 0; i < sensor->size; i++) {
+			sum += sensor->datas[i];
+		}
+
+		return sum / sensor->size;
+	}
+
+	return 0;
+}
+
+int64_t get_max(Sensor* sensor) {
+	if(!sensor) {
+		printf("Error\n");
+		return 0;
+	}
+
+	int64_t max = 0;
+
+	if(sensor->count < sensor->size) {
+		for(int i = 0; i < sensor->count; i++) {
+			if(max < sensor->datas[i])
+				max = sensor->datas[i];
+		}
+	} else {
+		for(int i = 0; i < sensor->size; i++) {
+			if(max < sensor->datas[i])
+				max = sensor->datas[i];
+		}
+	}
+
+	return max;
 }

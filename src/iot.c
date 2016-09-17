@@ -316,3 +316,11 @@ bool iot_process(Packet* packet) {
 
 	return false;
 }
+
+IoTDevice* iot_get_iot_device(char* name) {
+	return NULL;
+}
+
+void* iot_get_action(IoTDevice* iot_device, char* action) {
+	return NULL;
+}

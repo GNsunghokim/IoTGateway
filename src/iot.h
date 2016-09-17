@@ -1,9 +1,15 @@
+#ifndef __IOT_H__
+#define __IOT_H__
+
 #include <net/packet.h>
 #include <util/types.h>
 #include <util/map.h>
 
 #include <json.h>
 #include <json_util.h>
+
+#include "actuator.h"
+#include "sensor.h"
 
 typedef struct _IoTDevice {
 	char* name;
@@ -17,6 +23,8 @@ typedef struct _IoTDevice {
 bool iot_init();
 IoTDevice* iot_create_device(char* name, char* description, uint64_t mac);
 bool iot_json_create(json_object *jso);
+IoTDevice* iot_get_iot_device(char* name);
+void* iot_get_action(IoTDevice* iot_device, char* action);
 bool iot_delete_device(char* name);
 
 #define		IOT_DEVICE_NONE		0x00
@@ -26,3 +34,4 @@ bool iot_delete_device(char* name);
 bool iot_add_module(IoTDevice* iot_device, uint8_t type, void* module);
 void* iot_remove_module(char* name, uint8_t type, char* module_name);
 bool iot_process(Packet* packet);
+#endif

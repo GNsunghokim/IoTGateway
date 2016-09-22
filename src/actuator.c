@@ -8,6 +8,7 @@
 #include <json_util.h>
 
 #include "actuator.h"
+#include "util.h"
 
 Action* action_create(char* name, char* func) {
 	if(name == NULL || func == NULL)
@@ -113,6 +114,9 @@ Action* action_json_create(json_object* jso) {
 			strcpy(func, json_object_to_json_string(child_object));
 		}
 	}
+
+	remove_blank(name);
+	remove_blank(func);
 	printf("\t\t\t\t%s\t\t%s\n", name, func);
 
 	return action_create(name, func);
@@ -128,6 +132,7 @@ Actuator* actuator_json_create(json_object* jso) {
 			//printf("???\n");
 		}
 	}
+	remove_blank(name);
 	actuator = actuator_create(name);
 	if(!actuator) {
 		return NULL;
@@ -199,6 +204,10 @@ bool actuator_add_action(Actuator* actuator, Action* action) {
 	}
 
 	return true;
+}
+
+Action* actuator_get_action(Actuator* actuator, char* action) {
+	return map_get(actuator->actions, action);
 }
 
 Action* actuator_remove_action(Actuator* actuator, char* name) {

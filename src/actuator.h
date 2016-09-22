@@ -23,5 +23,6 @@ void action_delete(Action* action);
 Actuator* actuator_create(char* name);
 bool actuator_delete(Actuator* actuator);
 bool actuator_add_action(Actuator* actuator, Action* action);
+Action* actuator_get_action(Actuator* actuator, char* action);
 Action* actuator_remove_action(Actuator* actuator, char* name);
 #endif

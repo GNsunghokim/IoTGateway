@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include <thread.h>
-#include <util/event.h>
+//#include <util/event.h>
 #include <net/nic.h>
 #include <net/packet.h>
 #include <net/ether.h>
@@ -19,6 +19,7 @@
 #include "rule.h"
 
 #define CONFIG_FILE	"iot_config.json"
+#define IP_ADDR		0xc0a80a01
 
 void ginit(int argc, char** argv) {
 }
@@ -26,7 +27,8 @@ void ginit(int argc, char** argv) {
 void init(int argc, char** argv) {
 	dup_init();
 	iot_init();
-	event_init();
+	//event_init();
+	rule_init();
 
 	json_object *jso = json_object_from_file("./iot_config.json");
 	if(jso) { 
@@ -34,22 +36,48 @@ void init(int argc, char** argv) {
 		json_object_object_foreach(jso, key, child_object) {
 
 			if(!strcmp(key, "iot-device")) {
+				printf("IoT Device:\n");
 				for(int i =0; i < json_object_array_length(child_object); i++) {
 					json_object* iot_object = json_object_array_get_idx(child_object, i);
 					iot_json_create(iot_object);
 					printf("\n");
 				}
 			} else if(!strcmp(key, "rule")) {
-				printf("\tRule:\n");
-				printf("\t\tName\t\tFunc\n\t\t\t\tAction\t\tDescription\n");
+				printf("Rule:\n");
+				printf("\tName\t\tFunc\n\t\t\tAction\t\t\t\tDescription\n");
 				for(int i =0; i < json_object_array_length(child_object); i++) {
 					json_object* rule_object = json_object_array_get_idx(child_object, i);
 					rule_json_create(rule_object);
 					printf("\n");
 				}
+			} else {
+				printf("???\n");
 			}
 		}
 	}
+	json_object_put(jso);
+}
+
+bool _arp_process(Packet* packet) {
+	Ether* ether = (Ether*)(packet->buffer + packet->start);
+	if(endian16(ether->type) == ETHER_TYPE_ARP) {
+		// ARP response
+		ARP* arp = (ARP*)ether->payload;
+		if(endian16(arp->operation) == 1 && endian32(arp->tpa) == IP_ADDR) {
+			ether->dmac = ether->smac;
+			ether->smac = endian48(packet->nic->mac);
+			arp->operation = endian16(2);
+			arp->tha = arp->sha;
+			arp->tpa = arp->spa;
+			arp->sha = ether->smac;
+			arp->spa = endian32(IP_ADDR);
+			
+			nic_output(packet->nic, packet);
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void process(NIC* ni) {
@@ -57,19 +85,17 @@ void process(NIC* ni) {
 	if(!packet)
 		return;
 	
-// IoT Gateway not need echo
-//	
-//	if(arp_process(packet))
-//		return;
-//	
-//	if(icmp_process(packet))
-//		return;
+ 	if(_arp_process(packet)) {
+ 		return;
+	}
+ //	
+// 	if(icmp_process(packet))
+// 		return;
 
 	if(iot_process(packet))
 		return;
 
-	if(packet)
-		nic_free(packet);
+	nic_free(packet);
 }
 
 void destroy() {
@@ -88,6 +114,7 @@ int main(int argc, char** argv) {
 	thread_barrior();
 	
 	init(argc, argv);
+	printf("Thread %d Initilized\n", thread_id());
 	
 	thread_barrior();
 	
@@ -100,7 +127,6 @@ int main(int argc, char** argv) {
 			NIC* ni = nic_get(i);
 			process(ni);
 		}
-		event_loop();
 	}
 	
 	thread_barrior();

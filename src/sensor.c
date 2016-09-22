@@ -7,6 +7,7 @@
 #include <json_util.h>
 
 #include "sensor.h"
+#include "util.h"
 
 Sensor* sensor_create(char* name, uint64_t size) {
 	Sensor* sensor = (Sensor*)malloc(sizeof(Sensor));
@@ -20,10 +21,10 @@ Sensor* sensor_create(char* name, uint64_t size) {
 
 	strcpy(sensor->name, name);
 
-	sensor->datas = (uint64_t*)malloc(sizeof(uint64_t) * size);
+	sensor->datas = (int64_t*)malloc(sizeof(int64_t) * size);
 	if(!sensor->datas)
 		goto fail;
-	memset(sensor->datas, 0 ,sizeof(uint64_t) * size);
+	memset(sensor->datas, 0 ,sizeof(int64_t) * size);
 
 	sensor->size = size;
 	sensor->count = 0;
@@ -63,6 +64,7 @@ Sensor* sensor_json_create(json_object* jso) {
 		}
 	}
 
+	remove_blank(name);
 	printf("\t\t%s\t%ld\n", name, size);
 	return sensor_create(name, size);
 }
@@ -90,7 +92,7 @@ bool sensor_delete(Sensor* sensor) {
 	return true;
 }
 
-bool sensor_data_push(Sensor* sensor, uint64_t data) {
+bool sensor_data_push(Sensor* sensor, int64_t data) {
 	sensor->datas[sensor->count % sensor->size] = data;
 	sensor->count++;
 

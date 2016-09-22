@@ -13,15 +13,15 @@
 
 typedef struct _IoTDevice {
 	char* name;
+	char* id;
 	char* description;
-	uint64_t mac;
 
 	Map* sensors;
 	Map* actuators;
 } IoTDevice;
 
 bool iot_init();
-IoTDevice* iot_create_device(char* name, char* description, uint64_t mac);
+IoTDevice* iot_create_device(char* name, char* description, char* id);
 bool iot_json_create(json_object *jso);
 IoTDevice* iot_get_iot_device(char* name);
 void* iot_get_action(IoTDevice* iot_device, char* action);
@@ -33,5 +33,6 @@ bool iot_delete_device(char* name);
 
 bool iot_add_module(IoTDevice* iot_device, uint8_t type, void* module);
 void* iot_remove_module(char* name, uint8_t type, char* module_name);
+void* iot_get_module(IoTDevice* iot_device, uint8_t type, char* name);
 bool iot_process(Packet* packet);
 #endif

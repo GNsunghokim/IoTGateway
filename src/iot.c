@@ -17,6 +17,7 @@
 #include "actuator.h"
 #include "sensor.h"
 #include "mqtt.h"
+#include "util.h"
 
 #include <json.h>
 #include <json_util.h>
@@ -32,7 +33,7 @@ bool iot_init() {
 	return true;
 }
 
-IoTDevice* iot_create_device(char* name, char* description, uint64_t mac) {
+IoTDevice* iot_create_device(char* name, char* description, char* id) {
 	if(!name) {
 		printf("iot_create_device fail: name is null\n");
 		return NULL;
@@ -56,7 +57,11 @@ IoTDevice* iot_create_device(char* name, char* description, uint64_t mac) {
 
 	strcpy(iotdevice->name, name);
 
-	iotdevice->mac = mac;
+	iotdevice->id = (char*)malloc(strlen(id) + 1);
+	if(!iotdevice->id)
+		goto fail;
+
+	strcpy(iotdevice->id, id);
 
 	if(description) {
 		iotdevice->description = (char*)malloc(strlen(description) + 1);
@@ -76,7 +81,7 @@ IoTDevice* iot_create_device(char* name, char* description, uint64_t mac) {
 		goto fail;
 	}
 
-	if(!map_put(iot_database, name, iotdevice)) {
+	if(!map_put(iot_database, iotdevice->id, iotdevice)) {
 		goto fail;
 	}
 
@@ -85,6 +90,10 @@ fail:
 	if(iotdevice->name) {
 		free(iotdevice->name);
 		iotdevice->name = NULL;
+	}
+	if(iotdevice->id) {
+		free(iotdevice->id);
+		iotdevice->id = NULL;
 	}
 	if(iotdevice->description) {
 		free(iotdevice);
@@ -109,30 +118,32 @@ fail:
 
 bool iot_json_create(json_object *jso) {
 	char name[64];
-	char mac[32];
+	char id[32];
 	char description[128];
-
 
 	json_object_object_foreach(jso, key1, child_object1) {
 		if(!strcmp(key1, "name")) {
 			strcpy(name, json_object_to_json_string(child_object1));
-			printf("iot-device: %s\n", name);
-		} else if(!strcmp(key1, "mac")) {
-			strcpy(mac, json_object_to_json_string(child_object1));
-			printf("\t%s: %s\n", key1, mac);
+		} else if(!strcmp(key1, "id")) {
+			strcpy(id, json_object_to_json_string(child_object1));
 		} else if(!strcmp(key1, "description")) {
 			strcpy(description, json_object_to_json_string(child_object1));
-			printf("\t%s: %s\n", key1, description);
 		} else {
 			//printf("???\n");
 		}
 	}
 
-	IoTDevice* iot_device = iot_create_device(name, description, 0); //TODO fix here mac address
+	remove_blank(name);
+	remove_blank(id);
+	remove_blank(description);
+
+	IoTDevice* iot_device = iot_create_device(name, description, id); //TODO fix here mac address
 	if(!iot_device) {
-		printf("Can't Create iot_device\n");
 		return false;
 	}
+	printf("\tName: %s\n", name);
+	printf("\tID: %s\n", id);
+	printf("\tDescription: %s\n", description);
 
 	json_object_object_foreach(jso, key2, child_object2) {
 		if(!strcmp(key2, "sensor")) {
@@ -258,7 +269,7 @@ void* iot_remove_module(char* name, uint8_t type, char* module_name) {
 			return sensor;
 		case IOT_DEVICE_ACTUATOR:
 			;
-			Actuator* actuator = map_get(iotdevice->sensors, module_name);
+			Actuator* actuator = map_get(iotdevice->actuators, module_name);
 			if(!actuator) {
 				return NULL;
 			}
@@ -278,20 +289,57 @@ typedef struct _MQTT_VHeader {
 	uint8_t         topic[0];
 } __attribute__ ((packed)) MQTT_VHeader;
 
+static int counter = 0;
 bool is_iot_packet(IP* ip) {
 	if(ip->protocol == IP_PROTOCOL_UDP) {
 		return false;
 	} else if(ip->protocol == IP_PROTOCOL_TCP) {
 		TCP* tcp = (TCP*)ip->body;
-		if(endian16(ip->source) == 1883) { //check ip and port iot device ip and port 1883 == mqtt broker port
-			MQTT* mqtt = (MQTT*)tcp->payload;
+		if(endian16(tcp->source) == 1883) { //check ip and port iot device ip and port 1883 == mqtt broker port
+			MQTT* mqtt = (MQTT*)((uint8_t*)tcp + (tcp->offset * 4));
 			MQTT_VHeader* vheader= (MQTT_VHeader*)mqtt->body;
 			char buf[256] = {0,};
 			strncpy(buf, (char*)vheader->topic, vheader->topic_length);
-			printf("%d: ", mqtt->length);
-			printf("topic name: %s\n", buf);
-			strncpy(buf, (char*)vheader->topic + sizeof(MQTT_VHeader) + vheader->topic_length, mqtt->length - sizeof(MQTT_VHeader) + vheader->topic_length);
-			printf("\tdata: %s\n", buf);
+			memcpy(buf, (char*)vheader->topic + vheader->topic_length, mqtt->length - sizeof(MQTT_VHeader) + vheader->topic_length);
+			json_object* jso = json_tokener_parse(buf);
+			if(jso) {
+				//printf("\tData: %s\n", json_object_to_json_string(jso));
+				IoTDevice* iot_device = NULL;
+				char name[64] = {0, };
+				json_object_object_foreach(jso, key, child_object) {
+					if(!strcmp(key, "id_of_sensor")) {
+						strcpy(name, json_object_to_json_string(child_object));
+						remove_blank(name);
+						iot_device = iot_get_iot_device(name);
+						break;
+					}
+				}
+				if(!iot_device)
+					return false;
+				//get IoTDevice;
+				printf("IoT Device: %s:%d\n", iot_device->name, counter++);
+				json_object_object_foreach(jso, key1, child_object1) {
+					char name[64] = {0, };
+
+					strcpy(name, key1);
+					remove_blank(name);
+					Sensor* sensor = iot_get_module(iot_device, IOT_DEVICE_SENSOR, name);
+
+					if(sensor) {
+						char value[64] = {0, };
+						strcpy(value, json_object_to_json_string(child_object1));
+						remove_blank(value);
+						char* ptr;
+						int64_t val = strtol(value, &ptr, 10);
+						if(val) {
+							printf("\t%s: %ld\n", name, val);
+							sensor_data_push(sensor, val);
+						}
+					}
+				}
+				json_object_put(jso); //free
+				//rule check process
+			}
 		}
 
 		return false;
@@ -301,26 +349,33 @@ bool is_iot_packet(IP* ip) {
 
 bool iot_process(Packet* packet) {
 	Ether* ether = (Ether*)(packet->buffer + packet->start);
-	IP* ip = (IP*)ether->payload;
-	if(is_alljoyn(ip)) {
-		//alljoyn process
-		return true;
-	}
-	if(is_iot_packet(ip)) {
-		//noral protocol
-		return true;
-	} else {
-		nic_free(packet);
-		return true;
+	if(endian16(ether->type) == ETHER_TYPE_IPv4) {
+		IP* ip = (IP*)ether->payload;
+		if(is_alljoyn(ip)) {
+			nic_free(packet);
+			return true;
+		}
+		if(is_iot_packet(ip)) {
+			nic_free(packet);
+			return true;
+		}
 	}
 
-	return false;
+	nic_free(packet);
+	return true;
 }
 
-IoTDevice* iot_get_iot_device(char* name) {
-	return NULL;
+IoTDevice* iot_get_iot_device(char* id) {
+	return map_get(iot_database, id);
 }
 
-void* iot_get_action(IoTDevice* iot_device, char* action) {
-	return NULL;
+void* iot_get_module(IoTDevice* iot_device, uint8_t type, char* name) {
+	switch(type) {
+		case IOT_DEVICE_SENSOR:
+			return map_get(iot_device->sensors, name);
+		case IOT_DEVICE_ACTUATOR:
+			return map_get(iot_device->actuators, name);
+		default:
+			return NULL;
+	}
 }

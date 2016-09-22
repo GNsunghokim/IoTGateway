@@ -6,9 +6,12 @@
 
 #include <json.h>
 #include <json_util.h>
+#include <errno.h>
 
 #include "iot.h"
 #include "rule.h"
+#include "actuator.h"
+#include "util.h"
 
 static Map* rule_database;
 
@@ -69,13 +72,49 @@ static Object* create_object(char* str) {
 	Object* object = malloc(sizeof(Object));
 	memset(object, 0, sizeof(Object));
 
-	if(object->type == OBJECT_TYPE_INT64) {
-		object->value = 0;
-	} else if(object->type == OBJECT_TYPE_SENSOR) {
-		object->sensor_obj.sensor = NULL;
-		object->sensor_obj.func = NULL;
+	char * endptr;
+	long val = strtol(str, &endptr, 10);
+	if(!errno) {
+		object->type = OBJECT_TYPE_INT64;
+		object->value = val;
 	} else {
-		goto fail;
+		char buf[64];
+		char* p;
+
+		object->type = OBJECT_TYPE_SENSOR;
+		strcpy(buf, str);
+		p = strtok(buf, "->");
+		if(!p) {
+			printf("Can't parse\n");
+			goto fail;
+		}
+		object->sensor_obj.iot_device = iot_get_iot_device(p);
+		if(!object->sensor_obj.iot_device) {
+			printf("Can't get iot device: '%s'\n", p);
+			goto fail;
+		}
+		p = strtok(p + strlen(p) + 1, "->");
+		if(!p) {
+			goto fail;
+		}
+		object->sensor_obj.sensor = iot_get_module(object->sensor_obj.iot_device, IOT_DEVICE_SENSOR, p);;
+		if(!object->sensor_obj.sensor) {
+			printf("Can't get sensor: %s\n", p);
+			goto fail;
+		}
+		p = strtok(p + strlen(p) + 1, "->");
+		if(!p) {
+			goto fail;
+		}
+		if(!strcmp(p, "newest")) {
+			object->sensor_obj.func = get_newest;
+		} else if(!strcmp(p, "avg")) {
+			object->sensor_obj.func = get_avg;
+		} else if(!strcmp(p, "max")) {
+			object->sensor_obj.func = get_max;
+		} else {
+			goto fail;
+		}	
 	}
 
 	return object;
@@ -83,47 +122,6 @@ static Object* create_object(char* str) {
 fail:
 	if(object)
 		free(object);
-
-	return NULL;
-}
-
-static void remove_blank(char* str) {
-	char* start = str;
-	char* end = str + strlen(str);
-
-	//cut head
-	for(; start < end; start++) {
-		if(*start != ' ') {
-			break;
-		}
-	}
-
-	//cut tail
-	for(; end > start; --end) {
-		if(*end != ' ') {
-			break;
-		}
-	}
-
-	strncpy(str, start, end - start);
-	printf("Debug str%s\n", str);
-}	
-
-static void* parse_arg(char args[][64], char* line) {
-	int num = sizeof(funcs) / sizeof(Func);
-
-	for(int i = 0; i < num; i++) {
-		char* func_ptr = strstr(funcs[i].name, line);
-		if(!func_ptr) {
-			strncpy(args[0], line, func_ptr - line);
-			remove_blank(args[0]);
-			strcpy(args[1], funcs[i].name);
-			strcpy(args[2], func_ptr + strlen(funcs[i].name));
-			remove_blank(args[2]);
-
-			return args;
-		}
-	}
 
 	return NULL;
 }
@@ -144,15 +142,11 @@ bool rule_delete(char* name) {
 	return false;
 }
 
-typedef struct _RuleAction {
-	char* action;
-	IoTDevice* iot_device;
-	bool (*func)(IoTDevice* iot_device);
-} RuleAction;
-
 static RuleAction* rule_action_create(char* action) {
+	//TODO fix here
 	RuleAction* rule_action = malloc(sizeof(RuleAction));
 	char* p;
+	char buf[64];
 
 	if(!rule_action) {
 		printf("Can't allocate Rule Action\n");
@@ -160,43 +154,46 @@ static RuleAction* rule_action_create(char* action) {
 	}
 	memset(rule_action, 0, sizeof(RuleAction));
 
-	rule_action->action = malloc(strlen(action) + 1);
-	if(!rule_action->action) {
-		printf("Can't allocate action\n");
-		goto fail;
-	}
-	strcpy(rule_action->action, action);
-
 	/**
 	   * rule action "iot_device_name.action"
 	 **/
-	p = strtok(action, ".");
+	strcpy(buf, action);
+	p = strtok(buf, "->");
 	if(!p) {
+		printf("Can't parse\n");
 		goto fail;
 	}
 	rule_action->iot_device = iot_get_iot_device(p);
 	if(!rule_action->iot_device) {
-		printf("Can't allocate iot device\n");
+		printf("Can't get iot device: '%s'\n", p);
 		goto fail;
 	}
 
-	p = strtok(action, ".");
+	p = strtok(p + strlen(p) + 1, "->");
 	if(!p) {
+		printf("Can't parse\n");
 		goto fail;
 	}
-	rule_action->func = iot_get_action(rule_action->iot_device, p);
-	if(!rule_action->func) {
-		printf("Can't allocate action\n");
+	rule_action->actuator = iot_get_module(rule_action->iot_device, IOT_DEVICE_ACTUATOR, p);
+	if(!rule_action->actuator) {
+		printf("Can't get actuator: %s\n", p);
+		goto fail;
+	}
+
+	p = strtok(p + strlen(p) + 1, "->");
+	if(!p) {
+		printf("Can't parse\n");
+		goto fail;
+	}
+	rule_action->action = actuator_get_action(rule_action->actuator, p);
+	if(!rule_action->action) {
+		printf("Can't get action: %s\n", p);
 		goto fail;
 	}
 
 	return rule_action;
 
 fail:
-	if(rule_action->action) {
-		free(rule_action->action);
-	}
-
 	if(rule_action) {
 		free(rule_action);
 	}
@@ -232,22 +229,26 @@ bool rule_create(char* name, char* func, char* action, char* description) {
 		goto fail;
 	}
 	strcpy(rule->func, func);
-	char args[3][64];
-	if(!parse_arg(args, func)) {
-		printf("Can't parse funcs\n");
-		goto fail;
-	}
-	rule->left_object = create_object(args[0]);
+
+	char buf[64];
+	char* p;
+	strcpy(buf, func);
+	p = strtok(buf, " ");
+	rule->left_object = create_object(p);
 	if(!rule->left_object) {
 		printf("Can't create left object\n");
 		goto fail;
 	}
-	rule->compare = get_func_ptr(args[1]);
+
+	p = strtok(p + strlen(p) + 1, " ");
+	rule->compare = get_func_ptr(p);
 	if(!rule->compare) {
 		printf("Can't get compare function\n");
 		goto fail;
 	}
-	rule->right_object =  create_object(args[2]);
+
+	p = strtok(p + strlen(p) + 1, " ");
+	rule->right_object =  create_object(p);
 	if(!rule->right_object) {
 		printf("Can't create right object\n");
 		goto fail;
@@ -268,7 +269,7 @@ bool rule_create(char* name, char* func, char* action, char* description) {
 	}
 	strcpy(rule->description, description);
 
-	if(!map_put(rule_database, name, rule)) {
+	if(!map_put(rule_database, rule->name, rule)) {
 		printf("rule_create fail: can't add rule_database\n");
 		goto fail;
 	}
@@ -305,10 +306,10 @@ fail:
 }
 
 bool rule_json_create(json_object* jso) {
-	char name[64];
-	char func[128];
-	char action[128];
-	char description[128];
+	char name[64] = {0,};
+	char func[128] = {0,};
+	char action[128] = {0,};
+	char description[128] = {0,};
 
 	json_object_object_foreach(jso, key1, child_object1) {
 		if(!strcmp(key1, "name")) {
@@ -320,15 +321,19 @@ bool rule_json_create(json_object* jso) {
 		} else if(!strcmp(key1, "description")) {
 			strcpy(description, json_object_to_json_string(child_object1));
 		} else {
-			printf("???\n");
+			//printf("???\n");
 		}
 	}
+
+	remove_blank(name);
+	remove_blank(func);
+	remove_blank(action);
+	remove_blank(description);
 
 	if(!rule_create(name, func, action, description)) {
 		return false;
 	}
-
-	printf("\t\t%s\t\t%s\n\t\t\t\t%s\t\t%s\n", name, func, action, description);
+	printf("\t%s\t\t%s\n\t\t\t%s\t\t%s\n", name, func, action, description);
 
 	return true;
 }

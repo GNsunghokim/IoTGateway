@@ -24,7 +24,7 @@ Sensor* sensor_create(char* name, uint64_t size) {
 	sensor->datas = (int64_t*)malloc(sizeof(int64_t) * size);
 	if(!sensor->datas)
 		goto fail;
-	memset(sensor->datas, 0 ,sizeof(int64_t) * size);
+	memset(sensor->datas, 0 , sizeof(int64_t) * size);
 
 	sensor->size = size;
 	sensor->count = 0;
@@ -113,7 +113,7 @@ int64_t get_newest(Sensor* sensor) {
 }
 
 int64_t get_avg(Sensor* sensor) {
-	int64_t sum;
+	int64_t sum = 0;
 
 	if(!sensor) {
 		printf("Error\n");

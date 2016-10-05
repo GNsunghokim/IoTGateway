@@ -18,6 +18,7 @@
 #include "sensor.h"
 #include "mqtt.h"
 #include "util.h"
+#include "rule.h"
 
 #include <json.h>
 #include <json_util.h>
@@ -289,21 +290,31 @@ typedef struct _MQTT_VHeader {
 	uint8_t         topic[0];
 } __attribute__ ((packed)) MQTT_VHeader;
 
-static int counter = 0;
 bool is_iot_packet(IP* ip) {
 	if(ip->protocol == IP_PROTOCOL_UDP) {
 		return false;
 	} else if(ip->protocol == IP_PROTOCOL_TCP) {
 		TCP* tcp = (TCP*)ip->body;
 		if(endian16(tcp->source) == 1883) { //check ip and port iot device ip and port 1883 == mqtt broker port
+			uint16_t body_len = endian16(ip->length) - (ip->ihl * 4) - (tcp->offset * 4);
+			if(body_len < sizeof(MQTT)) {
+				return false;
+			}
+
 			MQTT* mqtt = (MQTT*)((uint8_t*)tcp + (tcp->offset * 4));
+			if(mqtt->length < sizeof(MQTT_VHeader)) {
+				return false;
+			}
+
 			MQTT_VHeader* vheader= (MQTT_VHeader*)mqtt->body;
+			ssize_t len = mqtt->length - (sizeof(MQTT_VHeader) + vheader->topic_length);
 			char buf[256] = {0,};
-			strncpy(buf, (char*)vheader->topic, vheader->topic_length);
-			memcpy(buf, (char*)vheader->topic + vheader->topic_length, mqtt->length - sizeof(MQTT_VHeader) + vheader->topic_length);
+			if(len < 0 || len > sizeof(buf)) {
+				return false;
+			}
+			memcpy(buf, (char*)vheader->topic + vheader->topic_length, len);
 			json_object* jso = json_tokener_parse(buf);
 			if(jso) {
-				//printf("\tData: %s\n", json_object_to_json_string(jso));
 				IoTDevice* iot_device = NULL;
 				char name[64] = {0, };
 				json_object_object_foreach(jso, key, child_object) {
@@ -316,8 +327,11 @@ bool is_iot_packet(IP* ip) {
 				}
 				if(!iot_device)
 					return false;
-				//get IoTDevice;
+
+#ifdef DEBUG
+				static int counter = 0;
 				printf("IoT Device: %s:%d\n", iot_device->name, counter++);
+#endif
 				json_object_object_foreach(jso, key1, child_object1) {
 					char name[64] = {0, };
 
@@ -332,36 +346,44 @@ bool is_iot_packet(IP* ip) {
 						char* ptr;
 						int64_t val = strtol(value, &ptr, 10);
 						if(val) {
+#ifdef DEBUG
 							printf("\t%s: %ld\n", name, val);
+#endif
 							sensor_data_push(sensor, val);
 						}
 					}
 				}
 				json_object_put(jso); //free
-				//rule check process
+#ifdef DEBUG
+				printf("\n");
+#endif
 			}
+			return true;
 		}
-
-		return false;
 	}
 	return false;
 }
 
+#include <timer.h>
 bool iot_process(Packet* packet) {
 	Ether* ether = (Ether*)(packet->buffer + packet->start);
 	if(endian16(ether->type) == ETHER_TYPE_IPv4) {
 		IP* ip = (IP*)ether->payload;
 		if(is_alljoyn(ip)) {
-			nic_free(packet);
+			ni_free(packet);
 			return true;
 		}
 		if(is_iot_packet(ip)) {
-			nic_free(packet);
+			ni_free(packet);
+			uint64_t us1 = time_us();
+			rule_process();
+			uint64_t us2 = time_us();
+			printf("us:\t%ld\tmicro second\n", (us2 -us1));
 			return true;
 		}
 	}
 
-	nic_free(packet);
+	ni_free(packet);
 	return true;
 }
 

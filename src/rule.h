@@ -49,3 +49,4 @@ typedef struct _Rule {
 bool rule_init();
 bool rule_create(char* name, char* func, char* action, char* description);
 bool rule_json_create(json_object* jso);
+void rule_process();

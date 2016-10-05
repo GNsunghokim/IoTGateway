@@ -12,7 +12,7 @@
 #include <net/ip.h>
 #include <net/udp.h>
 #include <net/tcp.h>
-#include <net/nic.h>
+#include <net/ni.h>
 #include <net/packet.h>
 
 static Map* servers;

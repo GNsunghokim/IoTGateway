@@ -74,7 +74,7 @@ static Object* create_object(char* str) {
 
 	char * endptr;
 	long val = strtol(str, &endptr, 10);
-	if(!errno) {
+	if(str != endptr) {
 		object->type = OBJECT_TYPE_INT64;
 		object->value = val;
 	} else {
@@ -95,24 +95,30 @@ static Object* create_object(char* str) {
 		}
 		p = strtok(p + strlen(p) + 1, "->");
 		if(!p) {
+			printf("Can't parse\n");
 			goto fail;
 		}
-		object->sensor_obj.sensor = iot_get_module(object->sensor_obj.iot_device, IOT_DEVICE_SENSOR, p);;
+		object->sensor_obj.sensor = iot_get_module(object->sensor_obj.iot_device, IOT_DEVICE_SENSOR, p);
 		if(!object->sensor_obj.sensor) {
 			printf("Can't get sensor: %s\n", p);
 			goto fail;
 		}
 		p = strtok(p + strlen(p) + 1, "->");
 		if(!p) {
+			printf("Can't parse\n");
 			goto fail;
 		}
 		if(!strcmp(p, "newest")) {
 			object->sensor_obj.func = get_newest;
+			printf("newest\n");
 		} else if(!strcmp(p, "avg")) {
 			object->sensor_obj.func = get_avg;
+			printf("avg\n");
 		} else if(!strcmp(p, "max")) {
 			object->sensor_obj.func = get_max;
+			printf("max\n");
 		} else {
+			printf("Can't get Func: %s\n", p);
 			goto fail;
 		}	
 	}
@@ -336,4 +342,23 @@ bool rule_json_create(json_object* jso) {
 	printf("\t%s\t\t%s\n\t\t\t%s\t\t%s\n", name, func, action, description);
 
 	return true;
+}
+
+#include <timer.h>
+void rule_process() {
+	MapIterator iter;
+	map_iterator_init(&iter, rule_database);
+	while(map_iterator_has_next(&iter)) {
+		//uint64_t us1 = time_us();
+		MapEntry* entry = map_iterator_next(&iter);
+		Rule* rule = entry->data;
+		int64_t l_value = rule->left_object->type == OBJECT_TYPE_INT64 ? rule->left_object->value : rule->left_object->sensor_obj.func(rule->left_object->sensor_obj.sensor);
+		int64_t r_value = rule->right_object->type == OBJECT_TYPE_INT64 ? rule->right_object->value : rule->right_object->sensor_obj.func(rule->right_object->sensor_obj.sensor);
+		if(rule->compare(l_value, r_value)) {
+			//printf("Name: %s\n\tFunc: %s\n\tDescription: %s\n\n", rule->name, rule->func, rule->description);
+		}
+
+		//uint64_t us2 = time_us();
+		//printf("\tus: %ld milli second\n", (us2 -us1));
+	}
 }

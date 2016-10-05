@@ -5,7 +5,7 @@
 
 #include <thread.h>
 //#include <util/event.h>
-#include <net/nic.h>
+#include <net/ni.h>
 #include <net/packet.h>
 #include <net/ether.h>
 #include <net/arp.h>
@@ -65,14 +65,14 @@ bool _arp_process(Packet* packet) {
 		ARP* arp = (ARP*)ether->payload;
 		if(endian16(arp->operation) == 1 && endian32(arp->tpa) == IP_ADDR) {
 			ether->dmac = ether->smac;
-			ether->smac = endian48(packet->nic->mac);
+			ether->smac = endian48(packet->ni->mac);
 			arp->operation = endian16(2);
 			arp->tha = arp->sha;
 			arp->tpa = arp->spa;
 			arp->sha = ether->smac;
 			arp->spa = endian32(IP_ADDR);
 			
-			nic_output(packet->nic, packet);
+			ni_output(packet->ni, packet);
 			return true;
 		}
 	}
@@ -80,22 +80,19 @@ bool _arp_process(Packet* packet) {
 	return false;
 }
 
-void process(NIC* ni) {
-	Packet* packet = nic_input(ni);
+void process(NetworkInterface* ni) {
+	Packet* packet = ni_input(ni);
 	if(!packet)
 		return;
 	
  	if(_arp_process(packet)) {
  		return;
 	}
- //	
-// 	if(icmp_process(packet))
-// 		return;
 
 	if(iot_process(packet))
 		return;
 
-	nic_free(packet);
+	ni_free(packet);
 }
 
 void destroy() {
@@ -120,11 +117,11 @@ int main(int argc, char** argv) {
 	
 	uint32_t i = 0;
 	while(1) {
-		uint32_t count = nic_count();
+		uint32_t count = ni_count();
 		if(count > 0) {
 			i = (i + 1) % count;
 			
-			NIC* ni = nic_get(i);
+			NetworkInterface* ni = ni_get(i);
 			process(ni);
 		}
 	}

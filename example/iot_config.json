@@ -1,25 +1,25 @@
 {
 	"iot-device": [{
 		"name": "rustam-iot",
-		"id": 0,
+		"id": "DMSLAB.001",
 		"mac": "94:de:80:8f:94:b8",
 		"description": "This device is rustam's device",
 		"sensor": [{
-			"name": "temperature",
+			"name": "temp",
 			"buffer-size": 20
 		}, {
-			"name": "humidity",
+			"name": "hum",
 			"buffer-size": 1
 		}, {
-			"name": "luminous",
+			"name": "lig",
 		}]
 	}, {
-		"name": "lifix",
-		"id": 1,
+		"name": "rustam_lifx",
+		"id": "DMSLAB.002",
 		"mac": "94:de:80:8f:94:b9",
 		"description": "This device is lifix",
 		"actuator": [{
-			"name": "light",
+			"name": "lifx",
 			"action": [{
 				"name": "turn_on",
 				"func": "turn_on"
@@ -38,28 +38,28 @@
 	"rule": [{
 		"name": "fire",
 		"type": "agile",
-		"func": "rustam-iot.temperature1.avg > 100",
-		"action": "lifix.turn_on_red",
+		"func": "DMSLAB.001->temp->avg > 100",
+		"action": "DMSLAB.002->lifx->turn_on_red",
 		"priority": 9,
 		"description": "My home is burnning"
 	}, {
 		"name": "warm",
 		"type": "agile",
-		"func": "rustam-iot.temperature1.avg > 30",
-		"action": "lifix.turn_on_blue",
+		"func": "DMSLAB.001->temp->avg > 30",
+		"action": "DMSLAB.002->lifx->turn_on_blue",
 		"priority": 1,
 		"description": "My home is warm"
 	}, {
 		"name": "daytime",
 		"type": "agile",
-		"func": "rustam-iot.luminous.max > 50",
-		"action": "lifix.turn_off",
+		"func": "DMSLAB.001->lig->avg > 50",
+		"action": "DMSLAB.002->lifx->turn_off",
 		"description": "Now is the daytime"
 	}, {
 		"name": "night",
 		"type": "agile",
-		"func": "rustam-iot.luminous.max < 50",
-		"action": "lifix.turn_on",
+		"func": "DMSLAB.001->lig->avg < 30",
+		"action": "DMSLAB.002->lifx->turn_on",
 		"description": "Now is the night"
 	}]
 }

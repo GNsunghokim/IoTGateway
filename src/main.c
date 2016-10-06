@@ -56,6 +56,25 @@ void init(int argc, char** argv) {
 		}
 	}
 	json_object_put(jso);
+
+	jso = json_object_from_file("./iot_dup.json");
+	if(jso) { 
+		printf("%s is opened\n", "iot_dup.json");
+		json_object_object_foreach(jso, key, child_object) {
+
+			if(!strcmp(key, "duplicator")) {
+				printf("IoT Data Duplicator:\n");
+				for(int i =0; i < json_object_array_length(child_object); i++) {
+					json_object* iot_object = json_object_array_get_idx(child_object, i);
+					dup_json_create(iot_object);
+					printf("\n");
+				}
+			} else {
+				printf("???\n");
+			}
+		}
+	}
+	json_object_put(jso);
 }
 
 bool _arp_process(Packet* packet) {

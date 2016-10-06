@@ -1,0 +1,14 @@
+{
+	"duplicator": [{
+		"name": "kihong",
+		"description": "Esper Server",
+		"type": "tcp-client",
+		"ip": "117.16.136.192",
+		"port": "12345"
+	}, {
+		"name": "logdata",
+		"description": "IoT Log Data file",
+		"type": "file",
+		"path": "./iot_log.log",
+	}]
+}

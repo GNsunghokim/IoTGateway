@@ -12,6 +12,7 @@
 #include <net/icmp.h>
 #include <net/checksum.h>
 #include <net/udp.h>
+#include <timer.h>
 
 #include "iot.h"
 #include "actuator.h"
@@ -19,6 +20,7 @@
 #include "mqtt.h"
 #include "util.h"
 #include "rule.h"
+#include "dup.h"
 
 #include <json.h>
 #include <json_util.h>
@@ -358,13 +360,19 @@ bool is_iot_packet(IP* ip) {
 				printf("\n");
 #endif
 			}
+
+			uint64_t us1 = time_us();
+			rule_process();
+			uint64_t us2 = time_us();
+			printf("us:\t%ld\tmicro second\n", (us2 -us1));
+			dup_process(buf, len);
+
 			return true;
 		}
 	}
 	return false;
 }
 
-#include <timer.h>
 bool iot_process(Packet* packet) {
 	Ether* ether = (Ether*)(packet->buffer + packet->start);
 	if(endian16(ether->type) == ETHER_TYPE_IPv4) {
@@ -375,10 +383,6 @@ bool iot_process(Packet* packet) {
 		}
 		if(is_iot_packet(ip)) {
 			ni_free(packet);
-			uint64_t us1 = time_us();
-			rule_process();
-			uint64_t us2 = time_us();
-			printf("us:\t%ld\tmicro second\n", (us2 -us1));
 			return true;
 		}
 	}

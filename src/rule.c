@@ -344,7 +344,6 @@ bool rule_json_create(json_object* jso) {
 	return true;
 }
 
-#include <timer.h>
 void rule_process() {
 	MapIterator iter;
 	map_iterator_init(&iter, rule_database);

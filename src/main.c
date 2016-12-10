@@ -18,7 +18,8 @@
 #include "iot.h"
 #include "rule.h"
 
-#define CONFIG_FILE	"iot_config.json"
+#define IOT_CONFIG_FILE	"iot_config.json"
+#define IOT_DUP_FILE	"iot_dup.json"
 #define IP_ADDR		0xc0a80a01
 
 void ginit(int argc, char** argv) {
@@ -27,12 +28,14 @@ void ginit(int argc, char** argv) {
 void init(int argc, char** argv) {
 	dup_init();
 	iot_init();
+
+	//TODO event fix
 	//event_init();
 	rule_init();
 
-	json_object *jso = json_object_from_file("./iot_config.json");
+	json_object *jso = json_object_from_file(IOT_CONFIG_FILE);
 	if(jso) { 
-		printf("%s is opened\n", "iot_config.json");
+		printf("%s is opened\n", IOT_CONFIG_FILE);
 		json_object_object_foreach(jso, key, child_object) {
 
 			if(!strcmp(key, "iot-device")) {
@@ -54,12 +57,12 @@ void init(int argc, char** argv) {
 				printf("???\n");
 			}
 		}
+		json_object_put(jso);
 	}
-	json_object_put(jso);
 
-	jso = json_object_from_file("./iot_dup.json");
+	jso = json_object_from_file(IOT_DUP_FILE);
 	if(jso) { 
-		printf("%s is opened\n", "iot_dup.json");
+		printf("%s is opened\n", IOT_DUP_FILE);
 		json_object_object_foreach(jso, key, child_object) {
 
 			if(!strcmp(key, "duplicator")) {
@@ -73,8 +76,8 @@ void init(int argc, char** argv) {
 				printf("???\n");
 			}
 		}
+		json_object_put(jso);
 	}
-	json_object_put(jso);
 }
 
 bool _arp_process(Packet* packet) {
@@ -123,6 +126,7 @@ void gdestroy() {
 int main(int argc, char** argv) {
 	printf("PacketNgin IoT Gateway Start\n");
 	printf("Thread %d booting\n", thread_id());
+
 	if(thread_id() == 0) {
 		ginit(argc, argv);
 	}
@@ -131,7 +135,6 @@ int main(int argc, char** argv) {
 	
 	init(argc, argv);
 	printf("Thread %d Initilized\n", thread_id());
-	
 	thread_barrior();
 	
 	uint32_t i = 0;

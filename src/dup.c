@@ -238,6 +238,7 @@ bool dup_json_create(json_object *jso) {
 		printf("\tName: %s\n", name);
 		printf("\tPath: %s\n", path);
 		printf("\tdescription: %s\n", description);
+		dup->open(dup);
 
 		return true;
 	} else if(!strcmp("tcp-client", type)) {
@@ -252,6 +253,7 @@ bool dup_json_create(json_object *jso) {
 		printf("\tName: %s\n", name);
 		printf("\tPath: %s:%s\n", ip, port);
 		printf("\tdescription: %s\n", description);
+		dup->open(dup);
 
 		return true;
 	}

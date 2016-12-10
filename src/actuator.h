@@ -20,6 +20,7 @@ typedef struct _Actuator {
 Action* action_create(char* name, char* func);
 Actuator* actuator_json_create(json_object* jso);
 void action_delete(Action* action);
+
 Actuator* actuator_create(char* name);
 bool actuator_delete(Actuator* actuator);
 bool actuator_add_action(Actuator* actuator, Action* action);

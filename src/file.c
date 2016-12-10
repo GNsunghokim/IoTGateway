@@ -8,7 +8,7 @@ bool file_open(Dup* dup) {
 	if(dup->fd)
 		return false;
 
-	dup->fd = open(dup->path, O_WRONLY | O_CREAT, 0644);
+	dup->fd = open(dup->path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if(dup->fd < 0) {
 		dup->fd = 0;
 		return false;
@@ -18,6 +18,9 @@ bool file_open(Dup* dup) {
 }
 
 bool file_close(Dup* dup) {
+	if(!dup->fd)
+		return true;
+
 	close(dup->fd);
 	dup->fd = 0;
 

@@ -31,6 +31,9 @@ bool client_connect(Dup* dup) {
 }
 
 bool client_disconnect(Dup* dup) {
+	if(!dup->fd)
+		return true;
+
 	close(dup->fd);
 	dup->fd = 0;
 

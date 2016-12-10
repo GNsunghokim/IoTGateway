@@ -3,6 +3,8 @@
 #include <string.h>
 #include <util/map.h>
 #include <util/types.h>
+#include <arpa/inet.h>
+#undef IP_TTL //TODO fixhere
 #include <net/packet.h>
 #include <net/ether.h>
 #include <net/arp.h>
@@ -12,7 +14,6 @@
 #include <net/icmp.h>
 #include <net/checksum.h>
 #include <net/udp.h>
-#include <timer.h>
 
 #include "iot.h"
 #include "actuator.h"
@@ -36,7 +37,7 @@ bool iot_init() {
 	return true;
 }
 
-IoTDevice* iot_create_device(char* name, char* description, char* id) {
+IoTDevice* iot_create_device(char* name, char* description, char* id, char* address) {
 	if(!name) {
 		printf("iot_create_device fail: name is null\n");
 		return NULL;
@@ -65,6 +66,8 @@ IoTDevice* iot_create_device(char* name, char* description, char* id) {
 		goto fail;
 
 	strcpy(iotdevice->id, id);
+
+	iotdevice->address = inet_addr(address);
 
 	if(description) {
 		iotdevice->description = (char*)malloc(strlen(description) + 1);
@@ -122,6 +125,7 @@ fail:
 bool iot_json_create(json_object *jso) {
 	char name[64];
 	char id[32];
+	char address[32];
 	char description[128];
 
 	json_object_object_foreach(jso, key1, child_object1) {
@@ -129,6 +133,8 @@ bool iot_json_create(json_object *jso) {
 			strcpy(name, json_object_to_json_string(child_object1));
 		} else if(!strcmp(key1, "id")) {
 			strcpy(id, json_object_to_json_string(child_object1));
+		} else if(!strcmp(key1, "address")) {
+			strncpy(address, json_object_to_json_string(child_object1), 32);
 		} else if(!strcmp(key1, "description")) {
 			strcpy(description, json_object_to_json_string(child_object1));
 		} else {
@@ -138,14 +144,16 @@ bool iot_json_create(json_object *jso) {
 
 	remove_blank(name);
 	remove_blank(id);
+	remove_blank(address);
 	remove_blank(description);
 
-	IoTDevice* iot_device = iot_create_device(name, description, id); //TODO fix here mac address
+	IoTDevice* iot_device = iot_create_device(name, description, id, address);
 	if(!iot_device) {
 		return false;
 	}
 	printf("\tName: %s\n", name);
 	printf("\tID: %s\n", id);
+	printf("\tAddress: %s\n", address);
 	printf("\tDescription: %s\n", description);
 
 	json_object_object_foreach(jso, key2, child_object2) {
@@ -282,17 +290,13 @@ void* iot_remove_module(char* name, uint8_t type, char* module_name) {
 	}
 }
 
-bool is_alljoyn(IP* ip) {
-	return false;
-}
-
 typedef struct _MQTT_VHeader {
 	uint8_t		id;
 	uint8_t		topic_length;
 	uint8_t         topic[0];
 } __attribute__ ((packed)) MQTT_VHeader;
 
-bool is_iot_packet(IP* ip) {
+static bool is_iot_packet(IP* ip) {
 	if(ip->protocol == IP_PROTOCOL_UDP) {
 		return false;
 	} else if(ip->protocol == IP_PROTOCOL_TCP) {
@@ -316,6 +320,10 @@ bool is_iot_packet(IP* ip) {
 			}
 			memcpy(buf, (char*)vheader->topic + vheader->topic_length, len);
 			json_object* jso = json_tokener_parse(buf);
+			
+#ifdef TIMER_LOG
+			int val_sum = 0;
+#endif
 			if(jso) {
 				IoTDevice* iot_device = NULL;
 				char name[64] = {0, };
@@ -330,7 +338,7 @@ bool is_iot_packet(IP* ip) {
 				if(!iot_device)
 					return false;
 
-#ifdef DEBUG
+#ifdef DEBUG_MSG
 				static int counter = 0;
 				printf("IoT Device: %s:%d\n", iot_device->name, counter++);
 #endif
@@ -347,24 +355,33 @@ bool is_iot_packet(IP* ip) {
 						remove_blank(value);
 						char* ptr;
 						int64_t val = strtol(value, &ptr, 10);
-						if(val) {
-#ifdef DEBUG
-							printf("\t%s: %ld\n", name, val);
+#ifdef DEBUG_MSG
+						printf("\t%s: %ld\n", name, val);
 #endif
-							sensor_data_push(sensor, val);
-						}
+						sensor_data_push(sensor, val);
+#ifdef TIMER_LOG
+						val_sum += val;
+#endif
 					}
 				}
 				json_object_put(jso); //free
-#ifdef DEBUG
+#ifdef DEBUG_MSG
 				printf("\n");
 #endif
 			}
 
-			uint64_t us1 = time_us();
+#ifdef TIMER_LOG
+			static int timer_id = 0;
+extern void timer_start(int timer_id);
+extern void timer_end(void);
+			timer_start(timer_id);
+#endif
 			rule_process();
-			uint64_t us2 = time_us();
-			printf("us:\t%ld\tmicro second\n", (us2 -us1));
+#ifdef TIMER_LOG
+			timer_end();
+			if(!val_sum)
+				timer_id++;
+#endif
 			dup_process(buf, len);
 
 			return true;
@@ -377,10 +394,6 @@ bool iot_process(Packet* packet) {
 	Ether* ether = (Ether*)(packet->buffer + packet->start);
 	if(endian16(ether->type) == ETHER_TYPE_IPv4) {
 		IP* ip = (IP*)ether->payload;
-		if(is_alljoyn(ip)) {
-			ni_free(packet);
-			return true;
-		}
 		if(is_iot_packet(ip)) {
 			ni_free(packet);
 			return true;

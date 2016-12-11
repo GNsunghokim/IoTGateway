@@ -7,7 +7,6 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#include "iot.h"
 #include "lifx.h"
 
 int fd = 0;
@@ -34,7 +33,7 @@ static void broadcast(void* data, ssize_t size) {
 		perror("sendto");
 }
 
-static void lifx_set_color(IoTDevice* iot_device, HSBK* color, uint32_t duration) {
+static void lifx_set_color(Actuator* actuator, HSBK* color, uint32_t duration) {
 	LIFX* lifx = malloc(sizeof(LIFX) + sizeof(LIFX_Light_Set_Color));
 	memset(lifx, 0, sizeof(LIFX) + sizeof(LIFX_Light_Set_Color));
 
@@ -52,7 +51,7 @@ static void lifx_set_color(IoTDevice* iot_device, HSBK* color, uint32_t duration
 	broadcast(lifx, sizeof(LIFX) + sizeof(LIFX_Light_Set_Color));
 }	
 
-static void lifx_set_power(IoTDevice* iot_device, uint16_t level, uint32_t duration){
+static void lifx_set_power(Actuator* actuator, uint16_t level, uint32_t duration){
 	LIFX* lifx = malloc(sizeof(LIFX) + sizeof(LIFX_Device_Set_Power));
 	memset(lifx, 0, sizeof(LIFX) + sizeof(LIFX_Device_Set_Power));
 
@@ -70,34 +69,34 @@ static void lifx_set_power(IoTDevice* iot_device, uint16_t level, uint32_t durat
 	broadcast(lifx, sizeof(LIFX) + sizeof(LIFX_Device_Set_Power));
 }
 
-bool lifx_turn_on(IoTDevice* iot_device) {
-	lifx_set_power(iot_device, 0xffff, 0xffffffff);
+bool lifx_turn_on(Actuator* actuator) {
+	lifx_set_power(actuator, 0xffff, 0xffffffff);
 	printf("Lifix Reaction : Turn on\n");
 	return true;
 }
 
-bool lifx_turn_off(IoTDevice* iot_device) {
-	lifx_set_power(iot_device, 0x0, 0xffffffff);
+bool lifx_turn_off(Actuator* actuator) {
+	lifx_set_power(actuator, 0x0, 0xffffffff);
 	printf("Lifix Reaction : Turn off\n");
 	return true;
 }
 
-bool lifx_turn_on_red(IoTDevice* iot_device) {
+bool lifx_turn_on_red(Actuator* actuator) {
 	HSBK color;
 	color.hue = 0xff00;
 	color.saturation = 0xff00;
 	color.brightness = 0xff00;
 	color.kelvin = 0xff00;
 
-	lifx_set_power(iot_device, 0xffff, 0xffffffff);
-	lifx_set_color(iot_device, &color, 0xffffffff);
+	lifx_set_power(actuator, 0xffff, 0xffffffff);
+	lifx_set_color(actuator, &color, 0xffffffff);
 
 	return true;
 }
 
 #include <unistd.h>
-bool lifx_turn_on_blue(IoTDevice* iot_device) {
-	lifx_set_power(iot_device, 0xffff, 0xffffffff);
+bool lifx_turn_on_blue(Actuator* actuator) {
+	lifx_set_power(actuator, 0xffff, 0xffffffff);
 
 	HSBK color;
 	for(int i = 0; i < 0xffff; i++) {
@@ -106,8 +105,21 @@ bool lifx_turn_on_blue(IoTDevice* iot_device) {
 		color.brightness = 0xffff;
 		color.kelvin = 0x0dac;
 
-		lifx_set_color(iot_device, &color, 0x0);
+		lifx_set_color(actuator, &color, 0x0);
 	}
 
 	return true;
+}
+
+void* lifx_get_action(char* func) {
+	if(!strcmp(func, "turn_on"))
+		return lifx_turn_on;
+	else if(!strcmp(func, "turn_off"))
+		return lifx_turn_off;
+	else if(!strcmp(func, "turn_on_red"))
+		return lifx_turn_on_red;
+	else if(!strcmp(func, "turn_on_blue"))
+		return lifx_turn_on_blue;
+	else
+		return NULL;
 }

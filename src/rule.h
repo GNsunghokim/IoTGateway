@@ -1,3 +1,6 @@
+#ifndef __RULE_H__
+#define __RULE_H__
+
 #include <util/types.h>
 
 #include <json.h>
@@ -16,9 +19,9 @@
 #define OBJECT_TYPE_SENSOR	2
 
 typedef struct _SensorObject {
-	IoTDevice* iot_device;
 	Sensor* sensor;
-	int64_t (*func)(Sensor* sensor);
+	Data* data;
+	int64_t (*func)(Data* data);
 } SensorObject;
 
 typedef struct _Object {
@@ -30,7 +33,6 @@ typedef struct _Object {
 } Object;
 
 typedef struct _RuleAction {
-	IoTDevice* iot_device;
 	Actuator* actuator;
 	Action* action;
 } RuleAction;
@@ -46,7 +48,13 @@ typedef struct _Rule {
 	bool (*compare)(int64_t l_value, int64_t r_value);
 } Rule;
 
-bool rule_init();
-bool rule_create(char* name, char* func, char* action, char* description);
-bool rule_json_create(json_object* jso);
+bool rule_database_init();
+void rule_database_destroy();
+bool rule_database_add(Rule* rule);
+Rule* rule_database_remove(char* name);
+
+Rule* rule_create(char* name, char* func, char* action, char* description);
+Rule* rule_json_create(json_object* jso);
 void rule_process();
+
+#endif

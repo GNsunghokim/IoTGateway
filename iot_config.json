@@ -1,0 +1,59 @@
+{
+	"sensors": [{
+		"name": "TEMP_HUM_LIG",
+		"description": "This device is rustam's device",
+		"type": "mqtt",
+		"datas": [{
+			"name": "temp",
+			"size": 20
+		}, {
+			"name": "hum",
+			"size": 1
+		}, {
+			"name": "lig",
+		}]
+	}],
+	"actuators": [{
+		"name": "rustam_lifx",
+		"address": "192.168.100.255",
+		"description": "This device is lifix",
+		"actions": [{
+			"type": "lifx",
+			"name": "turn_on",
+			"function": "turn_on"
+		}, {
+			"type": "lifx",
+			"name": "turn_off",
+			"function": "turn_off"
+		}, {
+			"type": "lifx",
+			"name": "turn_on_red",
+			"function": "turn_on_red"
+		}, {
+			"type": "lifx",
+			"name": "turn_on_blue",
+			"function": "turn_on_blue"
+		}]
+	}],
+	"rule": [{
+		"name": "fire",
+		"func": "TEMP_HUM_LIG->temp->avg > 100",
+		"action": "rustam_lifx->turn_on_red",
+		"description": "My home is burnning"
+	}, {
+		"name": "warm",
+		"func": "TEMP_HUM_LIG->temp->avg > 30",
+		"action": "rustam_lifx->turn_on_blue",
+		"description": "My home is warm"
+	}, {
+		"name": "daytime",
+		"func": "TEMP_HUM_LIG->lig->avg > 50",
+		"action": "rustam_lifx->turn_off",
+		"description": "Now is the daytime"
+	}, {
+		"name": "night",
+		"func": "TEMP_HUM_LIG->lig->avg < 30",
+		"action": "rustam_lifx->turn_on",
+		"description": "Now is the night"
+	}]
+}

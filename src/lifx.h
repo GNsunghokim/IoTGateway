@@ -1,6 +1,8 @@
 #ifndef __LIFX_H__
 #define __LIFX_H__
 
+#include <actuator.h>
+
 typedef struct _LIFX{
 	/* frame */
 	uint16_t size;
@@ -172,8 +174,9 @@ typedef struct _LIFX_Light_State_Power {
 	uint16_t	level;
 } __attribute__ ((packed)) LIFX_Light_State_Power;
 
-bool lifx_turn_on(IoTDevice* iot_device);
-bool lifx_turn_off(IoTDevice* iot_device);
-bool lifx_turn_on_red(IoTDevice* iot_device);
-bool lifx_turn_on_blue(IoTDevice* iot_device);
+bool lifx_turn_on(Actuator* actuator);
+bool lifx_turn_off(Actuator* actuator);
+bool lifx_turn_on_red(Actuator* actuator);
+bool lifx_turn_on_blue(Actuator* actuator);
+void* lifx_get_action(char* func);
 #endif

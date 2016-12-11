@@ -9,7 +9,35 @@
 #include "sensor.h"
 #include "util.h"
 
-Sensor* sensor_create(char* name, uint64_t size) {
+static Map* sensor_database;
+bool sensor_database_init() {
+	sensor_database = map_create(16, map_string_hash, map_string_equals, NULL);
+	if(!sensor_database)
+		return false;
+
+	return true;
+}
+
+void sensor_database_destroy() {
+	map_destroy(sensor_database);
+}
+
+bool sensor_database_add(Sensor* sensor) {
+	return map_put(sensor_database, sensor->name, sensor);
+}
+
+Sensor* sensor_database_remove(char* name) {
+	return map_remove(sensor_database, name);
+}
+
+Sensor* sensor_database_get(char* name) {
+	return map_get(sensor_database, name);
+}
+
+Sensor* sensor_create(char* name, char* type, char* description) {
+	if(!strlen(name) || !strlen(type))
+		return NULL;
+
 	Sensor* sensor = (Sensor*)malloc(sizeof(Sensor));
 	if(!sensor)
 		return NULL;
@@ -18,144 +46,118 @@ Sensor* sensor_create(char* name, uint64_t size) {
 	sensor->name = (char*)malloc(strlen(name) + 1);
 	if(!sensor->name)
 		goto fail;
-
 	strcpy(sensor->name, name);
 
-	sensor->datas = (int64_t*)malloc(sizeof(int64_t) * size);
-	if(!sensor->datas)
+	sensor->type = (char*)malloc(strlen(type) + 1);
+	if(!sensor->type)
 		goto fail;
-	memset(sensor->datas, 0 , sizeof(int64_t) * size);
+	strcpy(sensor->type, type);
 
-	sensor->size = size;
-	sensor->count = 0;
+	sensor->description = (char*)malloc(strlen(description) + 1);
+	if(!sensor->description)
+		goto fail;
+	strcpy(sensor->description, description);
+
+	sensor->data_map = map_create(16, map_string_hash, map_string_equals, NULL);
+	if(!sensor->data_map)
+		goto fail;
 
 	return sensor;
 
 fail:
-	if(sensor->datas) {
-		free(sensor->datas);
-		sensor->datas = NULL;
-	}
+	if(sensor->data_map)
+		map_destroy(sensor->data_map);
 
 	if(sensor->name) {
 		free(sensor->name);
-		sensor->name = NULL;
 	}
 
-	if(sensor) {
-		free(sensor);
-		sensor = NULL;
+	if(sensor->description) {
+		free(sensor->description);
 	}
+
+	if(sensor->type) {
+		free(sensor->type);
+	}
+
+	free(sensor);
 
 	return NULL;
 } 
 
 Sensor* sensor_json_create(json_object* jso) {
-	char name[64];
-	uint64_t size = 10;
+	char name[64] = {0, };
+	char type[64] = {0, };
+	char description[128] = {0, };
 
-	json_object_object_foreach(jso, key, child_object) { 
-		if(!strcmp(key, "name")) {
+	//TODO add new value
+	json_object_object_foreach(jso, key1, child_object) { 
+		if(!strcmp(key1, "name")) {
 			strcpy(name, json_object_to_json_string(child_object));
-		} else if(!strcmp(key, "buffer-size")) {
-			size = json_object_get_int64(child_object);
-		} else {
-			printf("???\n");
+			remove_blank(name);
+		} else if(!strcmp(key1, "type")) {
+			strcpy(type, json_object_to_json_string(child_object));
+			remove_blank(type);
+		} else if(!strcmp(key1, "description")) {
+			strcpy(description, json_object_to_json_string(child_object));
 		}
 	}
 
-	remove_blank(name);
-	printf("\t\t%s\t%ld\n", name, size);
-	return sensor_create(name, size);
+	Sensor* sensor = sensor_create(name, type, description);
+
+	if(sensor) {
+		json_object_object_foreach(jso, key2, child_object2) { 
+			if(!strcmp(key2, "datas")) {
+				for(int j = 0; j < json_object_array_length(child_object2); j++) {
+					json_object* action_object = json_object_array_get_idx(child_object2, j);
+					Data* data = data_json_create(action_object);
+					if(!data) {
+						printf("Data create fail\n");
+						goto fail;
+					}
+					if(!sensor_add_data(sensor, data)) {
+						printf("Data add fail\n");
+						data_delete(data);
+						goto fail;
+					}
+				}
+			}
+		}
+		printf("\t\t%s\n", name);
+	} else {
+		printf("Sensor create fail\n");
+	}
+
+	return sensor;
+fail:
+	sensor_delete(sensor);
+	return NULL;
 }
 
 bool sensor_delete(Sensor* sensor) {
-	if(!sensor) {
-		printf("sensor is null\n");
-		return false;
-	}	
-	if(sensor->datas) {
-		free(sensor->datas);
-		sensor->datas = NULL;
+	//TODO Map flush
+	MapIterator iter;
+	map_iterator_init(&iter, sensor->data_map);
+	while(map_iterator_has_next(&iter)) {
+		MapEntry* entry = map_iterator_remove(&iter);
+		Data* data = entry->data;
+		data_delete(data);
 	}
-
-	if(sensor->name) {
-		free(sensor->name);
-		sensor->name = NULL;
-	}
-
-	if(sensor) {
-		free(sensor);
-		sensor = NULL;
-	}
+	map_destroy(sensor->data_map);
+	free(sensor->name);
+	free(sensor);
 
 	return true;
 }
 
-bool sensor_data_push(Sensor* sensor, int64_t data) {
-	sensor->datas[sensor->count % sensor->size] = data;
-	sensor->count++;
-
-	return true;
+bool sensor_add_data(Sensor* sensor, Data* data) {
+	return map_put(sensor->data_map, data->name, data);
 }
 
-int64_t get_newest(Sensor* sensor) {
-	if(!sensor) {
-		printf("Error\n");
-		return 0;
-	}
-	
-	if(sensor->count == 0) {
-		return 0;
-	} else {
-		return sensor->datas[(sensor->count - 1) % sensor->size];
-	}
+Data* sensor_remove_data(Sensor* sensor, char* data_name) {
+	return map_remove(sensor->data_map, data_name);
 }
 
-int64_t get_avg(Sensor* sensor) {
-	int64_t sum = 0;
-
-	if(!sensor) {
-		printf("Error\n");
-		return 0;
-	}
-
-	if(sensor->count < sensor->size) {
-		for(int i = 0; i < sensor->count; i++) {
-			sum += sensor->datas[i];
-		}
-
-		return sum / sensor->count;
-	} else {
-		for(int i = 0; i < sensor->size; i++) {
-			sum += sensor->datas[i];
-		}
-
-		return sum / sensor->size;
-	}
-
-	return 0;
-}
-
-int64_t get_max(Sensor* sensor) {
-	if(!sensor) {
-		printf("Error\n");
-		return 0;
-	}
-
-	int64_t max = 0;
-
-	if(sensor->count < sensor->size) {
-		for(int i = 0; i < sensor->count; i++) {
-			if(max < sensor->datas[i])
-				max = sensor->datas[i];
-		}
-	} else {
-		for(int i = 0; i < sensor->size; i++) {
-			if(max < sensor->datas[i])
-				max = sensor->datas[i];
-		}
-	}
-
-	return max;
-}
+Data* sensor_get_data(Sensor* sensor, char* data_name) {
+	return map_get(sensor->data_map, data_name);
+}	

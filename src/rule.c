@@ -8,8 +8,8 @@
 #include <json_util.h>
 #include <errno.h>
 
-#include "iot.h"
 #include "rule.h"
+#include "sensor.h"
 #include "actuator.h"
 #include "util.h"
 
@@ -88,34 +88,37 @@ static Object* create_object(char* str) {
 			printf("Can't parse\n");
 			goto fail;
 		}
-		object->sensor_obj.iot_device = iot_get_iot_device(p);
-		if(!object->sensor_obj.iot_device) {
-			printf("Can't get iot device: '%s'\n", p);
-			goto fail;
-		}
-		p = strtok(p + strlen(p) + 1, "->");
-		if(!p) {
-			printf("Can't parse\n");
-			goto fail;
-		}
-		object->sensor_obj.sensor = iot_get_module(object->sensor_obj.iot_device, IOT_DEVICE_SENSOR, p);
-		if(!object->sensor_obj.sensor) {
+		Sensor* sensor = sensor_database_get(p);
+		if(!sensor) {
 			printf("Can't get sensor: %s\n", p);
 			goto fail;
 		}
+		object->sensor_obj.sensor = sensor;
 		p = strtok(p + strlen(p) + 1, "->");
 		if(!p) {
 			printf("Can't parse\n");
 			goto fail;
 		}
+		Data* data = sensor_get_data(sensor, p);
+		if(!data) {
+			printf("Can't get data: %s\n", p);
+			goto fail;
+		}
+		object->sensor_obj.data = data;
+		p = strtok(p + strlen(p) + 1, "->");
+		if(!p) {
+			printf("Can't parse\n");
+			goto fail;
+		}
+
 		if(!strcmp(p, "newest")) {
-			object->sensor_obj.func = get_newest;
+			object->sensor_obj.func = data_get_newest;
 			printf("newest\n");
 		} else if(!strcmp(p, "avg")) {
-			object->sensor_obj.func = get_avg;
+			object->sensor_obj.func = data_get_avg;
 			printf("avg\n");
 		} else if(!strcmp(p, "max")) {
-			object->sensor_obj.func = get_max;
+			object->sensor_obj.func = data_get_max;
 			printf("max\n");
 		} else {
 			printf("Can't get Func: %s\n", p);
@@ -132,7 +135,7 @@ fail:
 	return NULL;
 }
 
-bool rule_init() {
+bool rule_database_init() {
 	rule_database = map_create(16, map_string_hash, map_string_equals, NULL);
 	if(!rule_database)
 		return false;
@@ -140,12 +143,20 @@ bool rule_init() {
 	return true;
 }
 
-static bool rule_func_check(char* func) {
-	return true;
+void rule_database_destroy() {
+	map_destroy(rule_database);
 }
 
-bool rule_delete(char* name) {
-	return false;
+bool rule_database_add(Rule* rule) {
+	return map_put(rule_database, rule->name, rule);
+}
+
+Rule* rule_database_remove(char* name) {
+	return map_remove(rule_database, name);
+}
+
+static bool rule_func_check(char* func) {
+	return true;
 }
 
 static RuleAction* rule_action_create(char* action) {
@@ -169,18 +180,7 @@ static RuleAction* rule_action_create(char* action) {
 		printf("Can't parse\n");
 		goto fail;
 	}
-	rule_action->iot_device = iot_get_iot_device(p);
-	if(!rule_action->iot_device) {
-		printf("Can't get iot device: '%s'\n", p);
-		goto fail;
-	}
-
-	p = strtok(p + strlen(p) + 1, "->");
-	if(!p) {
-		printf("Can't parse\n");
-		goto fail;
-	}
-	rule_action->actuator = iot_get_module(rule_action->iot_device, IOT_DEVICE_ACTUATOR, p);
+	rule_action->actuator = actuator_database_get(p);
 	if(!rule_action->actuator) {
 		printf("Can't get actuator: %s\n", p);
 		goto fail;
@@ -207,7 +207,7 @@ fail:
 	return NULL;
 }
 
-bool rule_create(char* name, char* func, char* action, char* description) {
+Rule* rule_create(char* name, char* func, char* action, char* description) {
 	if(!name)
 		return false;
 
@@ -275,13 +275,7 @@ bool rule_create(char* name, char* func, char* action, char* description) {
 	}
 	strcpy(rule->description, description);
 
-	if(!map_put(rule_database, rule->name, rule)) {
-		printf("rule_create fail: can't add rule_database\n");
-		goto fail;
-	}
-
-	return true;
-
+	return rule;
 fail:
 	if(rule->name) {
 		free(rule->name);
@@ -308,10 +302,10 @@ fail:
 		rule = NULL;
 	}
 
-	return false;
+	return NULL;
 }
 
-bool rule_json_create(json_object* jso) {
+Rule* rule_json_create(json_object* jso) {
 	char name[64] = {0,};
 	char func[128] = {0,};
 	char action[128] = {0,};
@@ -326,8 +320,6 @@ bool rule_json_create(json_object* jso) {
 			strcpy(action, json_object_to_json_string(child_object1));
 		} else if(!strcmp(key1, "description")) {
 			strcpy(description, json_object_to_json_string(child_object1));
-		} else {
-			//printf("???\n");
 		}
 	}
 
@@ -336,28 +328,27 @@ bool rule_json_create(json_object* jso) {
 	remove_blank(action);
 	remove_blank(description);
 
-	if(!rule_create(name, func, action, description)) {
-		return false;
-	}
-	printf("\t%s\t\t%s\n\t\t\t%s\t\t%s\n", name, func, action, description);
+	Rule* rule = rule_create(name, func, action, description);
+	if(rule)
+		printf("\t%s\t\t%s\n\t\t\t%s\t\t%s\n", name, func, action, description);
+	else
+		printf("Rule create Fail\n");
 
-	return true;
+	return rule;
 }
 
 void rule_process() {
 	MapIterator iter;
 	map_iterator_init(&iter, rule_database);
 	while(map_iterator_has_next(&iter)) {
-		//uint64_t us1 = time_us();
 		MapEntry* entry = map_iterator_next(&iter);
 		Rule* rule = entry->data;
-		int64_t l_value = rule->left_object->type == OBJECT_TYPE_INT64 ? rule->left_object->value : rule->left_object->sensor_obj.func(rule->left_object->sensor_obj.sensor);
-		int64_t r_value = rule->right_object->type == OBJECT_TYPE_INT64 ? rule->right_object->value : rule->right_object->sensor_obj.func(rule->right_object->sensor_obj.sensor);
+		int64_t l_value = rule->left_object->type == OBJECT_TYPE_INT64 ? rule->left_object->value : rule->left_object->sensor_obj.func(rule->left_object->sensor_obj.data);
+		int64_t r_value = rule->right_object->type == OBJECT_TYPE_INT64 ? rule->right_object->value : rule->right_object->sensor_obj.func(rule->right_object->sensor_obj.data);
 		if(rule->compare(l_value, r_value)) {
-			//printf("Name: %s\n\tFunc: %s\n\tDescription: %s\n\n", rule->name, rule->func, rule->description);
+			rule->action->action->action(rule->action->actuator);
+			printf("Name: %s\n\tFunc: %s\n\tDescription: %s\n\n", rule->name, rule->func, rule->description);
+			printf("%s\n", rule->action->action->name);
 		}
-
-		//uint64_t us2 = time_us();
-		//printf("\tus: %ld milli second\n", (us2 -us1));
 	}
 }

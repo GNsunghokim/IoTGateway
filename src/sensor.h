@@ -1,25 +1,33 @@
 #ifndef __SENSOR_H__
 #define __SENSOR_H__
 
-#include <util/types.h>
+#include <stdint.h>
 
 #include <json.h>
 #include <json_util.h>
 
+#include <util/types.h>
+
+#include <data.h>
+
 typedef struct _Sensor {
 	char* name;
-	int64_t* datas;
-	uint64_t size;
-	uint64_t count;
+	char* description;
+	char* type;
+	Map* data_map;
 } Sensor;
 
-Sensor* sensor_create(char* name, uint64_t size);
-bool sensor_delete(Sensor* sensor);
+bool sensor_database_init();
+void sensor_database_destroy();
+bool sensor_database_add(Sensor* sensor);
+Sensor* sensor_database_remove(char* name);
+Sensor* sensor_database_get(char* name);
+
+Sensor* sensor_create(char* name, char* type, char* description);
 Sensor* sensor_json_create(json_object* jso);
-bool sensor_data_push(Sensor* sensor, int64_t data);
+bool sensor_delete(Sensor* sensor);
 
-int64_t get_newest(Sensor* sensor);
-int64_t get_avg(Sensor* sensor);
-int64_t get_max(Sensor* sensor);
-
+bool sensor_add_data(Sensor* sensor, Data* data);
+Data* sensor_remove_data(Sensor* sensor, char* data_name);
+Data* sensor_get_data(Sensor* sensor, char* data_name);
 #endif

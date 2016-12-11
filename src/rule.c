@@ -338,17 +338,38 @@ Rule* rule_json_create(json_object* jso) {
 }
 
 void rule_process() {
+#ifdef TIMER_LOG
+	uint64_t avg = 0;
+	uint64_t size = map_size(rule_database);
+#endif
 	MapIterator iter;
 	map_iterator_init(&iter, rule_database);
 	while(map_iterator_has_next(&iter)) {
 		MapEntry* entry = map_iterator_next(&iter);
 		Rule* rule = entry->data;
+
+#ifdef TIMER_LOG
+#include <time.h>
+		struct timespec pre;
+		clock_gettime(CLOCK_REALTIME, &pre);
+#endif
 		int64_t l_value = rule->left_object->type == OBJECT_TYPE_INT64 ? rule->left_object->value : rule->left_object->sensor_obj.func(rule->left_object->sensor_obj.data);
 		int64_t r_value = rule->right_object->type == OBJECT_TYPE_INT64 ? rule->right_object->value : rule->right_object->sensor_obj.func(rule->right_object->sensor_obj.data);
-		if(rule->compare(l_value, r_value)) {
+		bool result = rule->compare(l_value, r_value);
+
+#ifdef TIMER_LOG
+		struct timespec current;
+		clock_gettime(CLOCK_REALTIME, &current);
+		avg += (uint64_t)current.tv_sec * 1000 * 1000 + (uint64_t)current.tv_nsec / 1000 - (uint64_t)pre.tv_sec * 1000 * 1000 + (uint64_t)pre.tv_nsec / 1000;
+#endif
+		if(result) {
 			rule->action->action->action(rule->action->actuator);
-			printf("Name: %s\n\tFunc: %s\n\tDescription: %s\n\n", rule->name, rule->func, rule->description);
-			printf("%s\n", rule->action->action->name);
+			//printf("Name: %s\n\tFunc: %s\n\tDescription: %s\n\n", rule->name, rule->func, rule->description);
+			//printf("%s\n", rule->action->action->name);
 		}
 	}
+#ifdef TIMER_LOG
+	extern void timer_end(uint64_t us);
+	timer_end(avg / size);
+#endif
 }

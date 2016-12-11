@@ -34,7 +34,7 @@ bool iot_init() {
 
 	json_object *jso = json_object_from_file(IOT_CONFIG_FILE);
 	if(jso) { 
-		printf("%s is opened\n", IOT_CONFIG_FILE);
+		printf("\"%s\" is opened\n", IOT_CONFIG_FILE);
 		json_object_object_foreach(jso, key, child_object) {
 			if(!strcmp(key, "sensors")) {
 				printf("IoT Sensors:\n");
@@ -76,7 +76,7 @@ bool iot_init() {
 
 	jso = json_object_from_file(IOT_DUP_FILE);
 	if(jso) { 
-		printf("%s is opened\n", IOT_DUP_FILE);
+		printf("\"%s\" is opened\n", IOT_DUP_FILE);
 		json_object_object_foreach(jso, key, child_object) {
 
 			if(!strcmp(key, "duplicator")) {
@@ -309,20 +309,7 @@ bool iot_process(Packet* packet) {
 	if(endian16(ether->type) == ETHER_TYPE_IPv4) {
 		IP* ip = (IP*)ether->payload;
 		if(is_iot_packet(ip)) {
-#ifdef TIMER_LOG
-#include <time.h>
-			//uint64_t pre_us = time_us();
-			struct timespec pre;
-			clock_gettime(CLOCK_REALTIME, &pre);
-#endif
 			rule_process();
-#ifdef TIMER_LOG
-			struct timespec current;
-			//uint64_t current_us = time_us();
-			clock_gettime(CLOCK_REALTIME, &current);
-void timer_end(uint64_t pre_us, uint64_t current_us);
-			timer_end(pre.tv_sec * 1000 * 1000 + pre.tv_nsec / 1000, current.tv_sec * 1000 * 1000 + current.tv_nsec / 1000);
-#endif
 			dup_process(packet->buffer, packet->end - packet->start);
 			ni_free(packet);
 			return true;

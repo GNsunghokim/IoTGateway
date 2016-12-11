@@ -4,10 +4,13 @@
 #include <action.h>
 #include <util.h>
 #include <lifx.h>
+#include <print.h>
 
 static void* get_action(char* type, char* function) {
 	if(!strcmp(type, "lifx")) {
 		return lifx_get_action(function);
+	} else if(!strcmp(type, "print")) {
+		return print_get_action(function);
 	}
 
 	return NULL;

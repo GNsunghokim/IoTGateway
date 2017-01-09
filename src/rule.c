@@ -360,7 +360,7 @@ void rule_process() {
 #ifdef TIMER_LOG
 		struct timespec current;
 		clock_gettime(CLOCK_REALTIME, &current);
-		avg += (uint64_t)current.tv_sec * 1000 * 1000 + (uint64_t)current.tv_nsec / 1000 - (uint64_t)pre.tv_sec * 1000 * 1000 + (uint64_t)pre.tv_nsec / 1000;
+		avg += (uint64_t)(current.tv_sec - pre.tv_sec) * 1000 * 1000 * 1000 + (uint64_t)(current.tv_nsec - pre.tv_nsec);
 #endif
 		if(result) {
 			rule->action->action->action(rule->action->actuator);
@@ -369,7 +369,7 @@ void rule_process() {
 		}
 	}
 #ifdef TIMER_LOG
-	extern void timer_end(uint64_t us);
+	extern void timer_end(uint64_t ns);
 	timer_end(avg / size);
 #endif
 }

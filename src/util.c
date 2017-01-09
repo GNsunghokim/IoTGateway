@@ -56,9 +56,9 @@ void timer_check(char* id) {
 	}
 }
 
-void timer_end(uint64_t us) {
+void timer_end(uint64_t ns) {
 	if(fd) {
-		sprintf(buf, "%lf\tmilli second\n", (double)us / 1000);
+		sprintf(buf, "%lf\tnanoecond\n", (double)ns);
 		if(write(fd, buf, strlen(buf)) < 0)
 			printf("File Write error\n");
 		printf("%s\n", buf);
